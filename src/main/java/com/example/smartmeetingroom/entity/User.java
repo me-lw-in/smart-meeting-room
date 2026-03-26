@@ -42,7 +42,8 @@ public class User {
     private Role roles;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, insertable = false)
+    @ColumnDefault("'AVAILABLE'")
     private UserStatus status;
 
 
