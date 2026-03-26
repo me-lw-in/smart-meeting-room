@@ -3,8 +3,8 @@ spring:
     name: smart-meeting-room
 
   datasource:
-    url:
-    username:
-    password:
+    url: jdbc:mysql://localhost:3306/smart_meeting_room_dev
+    username: root
+    password: admin
 server:
   port: 8080
