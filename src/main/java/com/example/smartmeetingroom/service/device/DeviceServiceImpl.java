@@ -5,7 +5,7 @@ import com.example.smartmeetingroom.entity.Device;
 import com.example.smartmeetingroom.repository.DeviceRepository;
 import com.example.smartmeetingroom.repository.DeviceTypeRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
-import com.example.smartmeetingroom.util.StringCapitalize;
+import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ public class DeviceServiceImpl implements DeviceService{
     private final MeetingRoomRepository meetingRoomRepository;
 
     public void addDevice(DeviceDTO dto){
-        String deviceName = StringCapitalize.capitalizeEachWord(dto.getDeviceName());
+        String deviceName = StringCapitalizeUtil.capitalizeEachWord(dto.getDeviceName());
         if ( deviceRepository.existsByDeviceNameAndDeviceTypeIdNot(deviceName, dto.getDeviceTypeId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, deviceName + " is already exists of this type");
         }

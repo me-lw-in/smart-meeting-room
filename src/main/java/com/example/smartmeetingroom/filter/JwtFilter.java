@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.filter;
 
+import com.example.smartmeetingroom.security.CustomUserDetails;
 import com.example.smartmeetingroom.service.jwt.JwtService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -33,10 +34,11 @@ public class JwtFilter extends OncePerRequestFilter {
         var token = authHeader.replace("Bearer ", "");
         try {
             Claims claims = jwtService.extractAllClaims(token);
-            var email = claims.getSubject().toLowerCase().trim();
+            var userId = claims.get("userId", Long.class);
             var role = claims.get("role", String.class).toUpperCase().trim();
+
             var authentication = new UsernamePasswordAuthenticationToken(
-                    email,
+                    userId,
                     null,
                     List.of(new SimpleGrantedAuthority("ROLE_" + role))
             );

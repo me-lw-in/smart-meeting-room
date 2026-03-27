@@ -4,7 +4,7 @@ import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
-import com.example.smartmeetingroom.util.StringCapitalize;
+import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -40,8 +40,8 @@ public class UserServiceImpl implements UserService{
                         userType + " role not found"
                 )
         );
-        String firstName = StringCapitalize.capitalizeEachWord(dto.getFirstName().trim());
-        String lastName = StringCapitalize.capitalizeEachWord(dto.getLastName().trim());
+        String firstName = StringCapitalizeUtil.capitalizeEachWord(dto.getFirstName().trim());
+        String lastName = StringCapitalizeUtil.capitalizeEachWord(dto.getLastName().trim());
         String password = passwordEncoder.encode(dto.getPassword());
         var user = new User();
         user.setFirstName(firstName);

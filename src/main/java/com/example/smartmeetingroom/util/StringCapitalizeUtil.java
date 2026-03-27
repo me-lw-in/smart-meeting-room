@@ -1,6 +1,6 @@
 package com.example.smartmeetingroom.util;
 
-public class StringCapitalize {
+public class StringCapitalizeUtil {
 
     public static String capitalizeEachWord(String str){
         String[] strArr = str.trim().split("\\s+");

@@ -3,7 +3,7 @@ package com.example.smartmeetingroom.service.meetingroom;
 import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomDTO;
 import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
-import com.example.smartmeetingroom.util.StringCapitalize;
+import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,7 +17,7 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
 
     @Override
     public void addMeetingRoom(MeetingRoomDTO dto){
-        String roomName = StringCapitalize.capitalizeEachWord(dto.getRoomName());
+        String roomName = StringCapitalizeUtil.capitalizeEachWord(dto.getMeetingRoomName());
         Integer floorNumber = dto.getFloorNumber();
         Integer capacity = dto.getCapacity();
 

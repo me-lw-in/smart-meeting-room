@@ -7,9 +7,9 @@ import lombok.Setter;
 @Getter
 @Setter
 public class MeetingRoomDTO {
-    @NotBlank(message = "Room name is required")
+    @NotBlank(message = "Meeting room name is required")
     @Size(min = 3, max = 100, message = "Room name must be at least 3 characters")
-    private String roomName;
+    private String meetingRoomName;
 
     @NotNull(message = "Floor number is required")
     @Min(value = 0, message = "Floor number cannot be negative")
