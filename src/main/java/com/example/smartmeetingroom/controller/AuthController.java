@@ -2,6 +2,7 @@ package com.example.smartmeetingroom.controller;
 
 import com.example.smartmeetingroom.dto.auth.LoginDTO;
 import com.example.smartmeetingroom.dto.user.UserDTO;
+import com.example.smartmeetingroom.service.jwt.JwtService;
 import com.example.smartmeetingroom.service.user.UserService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/auth")
@@ -21,6 +24,7 @@ class AuthController {
 
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
     @PostMapping("/register")
     public ResponseEntity<Void> createAccount(@RequestBody @Valid UserDTO dto){
@@ -29,11 +33,13 @@ class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Void> loginUser(@RequestBody @Valid LoginDTO dto){
+    public ResponseEntity<Map<String,String>> loginUser(@RequestBody @Valid LoginDTO dto){
+        String email = dto.getEmail().trim().toLowerCase();
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                dto.getEmail(),
+                email,
                 dto.getPassword()
         ));
-        return ResponseEntity.status(HttpStatus.OK).build();
+        var token = jwtService.generateToken(email);
+        return ResponseEntity.status(HttpStatus.OK).body(Map.of("accessToken", token));
     }
 }

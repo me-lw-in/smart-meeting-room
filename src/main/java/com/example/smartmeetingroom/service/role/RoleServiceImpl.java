@@ -21,7 +21,7 @@ public class RoleServiceImpl implements RoleService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, roleName + " already exists");
         }
         var role = new Role();
-        role.setRoleName(roleName);
+        role.setRoleName(roleName.toUpperCase());
         roleRepository.save(role);
     }
 

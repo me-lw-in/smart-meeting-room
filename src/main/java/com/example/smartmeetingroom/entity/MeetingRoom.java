@@ -25,6 +25,6 @@ public class MeetingRoom {
     private Integer capacity;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, insertable = false)
     private RoomStatus status;
 }

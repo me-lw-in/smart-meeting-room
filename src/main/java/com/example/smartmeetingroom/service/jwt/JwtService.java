@@ -1,6 +1,10 @@
 package com.example.smartmeetingroom.service.jwt;
 
+import io.jsonwebtoken.Claims;
+
 public interface JwtService {
+
+    public Claims extractAllClaims(String token);
 
     public String generateToken(String email);
 

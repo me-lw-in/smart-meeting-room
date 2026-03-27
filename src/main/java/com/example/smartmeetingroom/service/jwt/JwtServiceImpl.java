@@ -1,10 +1,7 @@
 package com.example.smartmeetingroom.service.jwt;
 
-import com.example.smartmeetingroom.exception.JwtExpiredException;
-import com.example.smartmeetingroom.exception.JwtInvalidException;
 import com.example.smartmeetingroom.repository.UserRepository;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.AllArgsConstructor;
@@ -45,20 +42,13 @@ public class JwtServiceImpl implements JwtService{
     }
 
 
-    private Claims extractAllClaims(String token) {
-        try {
-            return Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+    public Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
 
-        } catch (ExpiredJwtException e) {
-            throw new JwtExpiredException("JWT token has expired");
-
-        } catch (Exception e) {
-            throw new JwtInvalidException("Invalid JWT token");
-        }
     }
 
     @Override

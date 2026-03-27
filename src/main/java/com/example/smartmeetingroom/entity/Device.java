@@ -31,8 +31,7 @@ public class Device {
     private MeetingRoom room;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, insertable = false)
     private DeviceStatus status;
-
 
 }
