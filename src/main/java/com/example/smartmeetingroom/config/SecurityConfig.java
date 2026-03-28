@@ -57,6 +57,10 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/bookings"
                         ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/bookings/*"
+                        ).authenticated()
 
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

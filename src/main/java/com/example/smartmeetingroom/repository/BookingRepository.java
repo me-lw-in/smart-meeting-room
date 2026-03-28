@@ -20,8 +20,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
       AND b.status IN ('CONFIRMED', 'STARTED')
       AND b.startTime < :endTime
       AND b.endTime > :startTime
+      AND (:bookingId IS NUll OR b.id <> :bookingId)
 """)
     List<String> findConflictingParticipantNames(Set<Long> participantIds,
+                                                 Long bookingId,
                                                  LocalDateTime startTime,
                                                  LocalDateTime endTime);
 
@@ -61,4 +63,31 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     AND b.endTime <= :time
 """)
     List<Long> findIdsByStatusAndEndTimeLessThanEqual(BookingStatus status, LocalDateTime time);
+
+    @Query("""
+        SELECT COUNT(b) > 0
+        FROM Booking b
+        WHERE b.room.id = :roomId
+          AND b.status IN ('CONFIRMED', 'STARTED')
+          AND b.startTime < :endTime
+          AND b.endTime > :startTime
+    """)
+    boolean existsOverlappingBooking(Long roomId,
+                                     LocalDateTime startTime,
+                                     LocalDateTime endTime);
+
+@Query("""
+        SELECT COUNT(b) > 0
+        FROM Booking b
+        WHERE b.room.id = :roomId
+          AND b.status IN ('CONFIRMED', 'STARTED')
+          AND b.startTime < :endTime
+          AND b.endTime > :startTime
+          AND b.id <> :bookingId
+    """)
+    boolean existsOverlappingBookingAndNotById(Long roomId,
+                                     Long bookingId,
+                                     LocalDateTime startTime,
+                                     LocalDateTime endTime);
+
 }

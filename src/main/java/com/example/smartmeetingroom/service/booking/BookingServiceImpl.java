@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.service.booking;
 
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
+import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.entity.User;
@@ -17,14 +18,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.awt.print.Book;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,10 +43,11 @@ public class BookingServiceImpl implements BookingService{
         validateTimings(startTime, endTime);
 
         // Check Room exists and availability
-        var meetingRoom = checkMeetingRoomAvailability(dto.getMeetingRoomId(), dto.getParticipantIds(), startTime, endTime);
+        boolean isOnlyTimeChanged = false;
+        var meetingRoom = checkMeetingRoomAvailability(dto.getMeetingRoomId(), null,isOnlyTimeChanged, dto.getParticipantIds(), startTime, endTime);
 
         // Check participant exits and availability
-        var users = checkUsersAvailability(dto, startTime, endTime);
+        var users = checkUsersAvailability(dto.getParticipantIds(), null, startTime, endTime);
 
         var booking = new Booking();
         booking.setCreatedBy(userRepository.getReferenceById(loggedInUserId));
@@ -59,6 +57,101 @@ public class BookingServiceImpl implements BookingService{
         booking.setParticipants(new HashSet<>(users));
         bookingRepository.save(booking);
 
+    }
+
+    @Override
+    @Transactional
+    public void updateBookingInfo(PatchBookingDTO dto, Long bookingId){
+        // fetch the booking
+        var booking = bookingRepository.findById(bookingId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found")
+        );
+
+        // logged in userId
+        var loggedInUserId = SecurityUtil.getCurrentUserId();
+
+        // check if he is the owner of the booking
+        var role = SecurityUtil.getCurrentUserRole();
+        if (!loggedInUserId.equals(booking.getCreatedBy().getId()) && !role.equals("SUPER_ADMIN") && !role.equals("ADMIN")){
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to modify this booking");
+        }
+
+        // old data
+        var oldRoomId = booking.getRoom().getId();
+        var oldStartTime = booking.getStartTime();
+        var oldEndTime = booking.getEndTime();
+        Set<Long> oldParticipantIds = booking.getParticipants()
+                .stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        // new data
+        LocalDateTime newStartTime = dto.getStartTime() == null ? oldStartTime : (oldStartTime.equals(dto.getStartTime()) ? oldStartTime : dto.getStartTime());
+        LocalDateTime newEndTime = dto.getEndTime() == null ? oldEndTime : (oldEndTime.equals(dto.getEndTime()) ? oldEndTime : dto.getEndTime());
+        Long newRoomId = dto.getMeetingRoomId() == null ? oldRoomId : (dto.getMeetingRoomId().equals(oldRoomId) ? oldRoomId : dto.getMeetingRoomId());
+        Set<Long> newParticipantIds = dto.getParticipantIds() == null || dto.getParticipantIds().isEmpty() ? oldParticipantIds : dto.getParticipantIds();
+        newParticipantIds.add(booking.getCreatedBy().getId());
+
+
+        // check for room change
+        boolean isRoomChanged = dto.getMeetingRoomId() != null && (!dto.getMeetingRoomId().equals(oldRoomId));
+        // check for time change
+        boolean isTimeChanged = (dto.getStartTime() != null && !newStartTime.equals(oldStartTime)) || (dto.getEndTime() != null && !newEndTime.equals(oldEndTime));
+        // check for participant changes
+        boolean isParticipantsChanged = !oldParticipantIds.equals(newParticipantIds);
+
+        MeetingRoom meetingRoom = null;
+        List<User> users;
+
+        if (booking.getStatus() != BookingStatus.STARTED || LocalDateTime.now().isBefore(oldStartTime)){
+            users = validateTimeAndUsers(dto, bookingId, isTimeChanged, newStartTime, newEndTime, isParticipantsChanged, newParticipantIds);
+            if (isRoomChanged){
+                boolean hasOnlyTimeChanged = false;
+                meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, hasOnlyTimeChanged, newParticipantIds, newStartTime, newEndTime);
+            }else if (isTimeChanged){
+
+                boolean hasOnlyTimeChanged = true;
+                meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, hasOnlyTimeChanged, newParticipantIds, newStartTime, newEndTime);
+            }
+        }else {
+            users = validateTimeAndUsers(dto, bookingId, isTimeChanged, newStartTime, newEndTime, isParticipantsChanged, newParticipantIds);
+        }
+
+
+        if (meetingRoom != null){
+            booking.setRoom(meetingRoom);
+        }
+        if (users != null) {
+            booking.setParticipants(new HashSet<>(users));
+        }
+        booking.setStartTime(newStartTime);
+        booking.setEndTime(newEndTime);
+
+    }
+
+    private List<User> validateTimeAndUsers(PatchBookingDTO dto,
+                                            Long bookingId,
+                                            boolean isTimeChanged,
+                                            LocalDateTime newStartTime,
+                                            LocalDateTime newEndTime,
+                                            boolean isParticipantsChanged,
+                                            Set<Long> newParticipantIds) {
+
+        if (isTimeChanged){
+            // check for pre-pone
+            if (dto.getStartTime() != null) {
+                if (dto.getStartTime().isBefore(LocalDateTime.now())){
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot start the meeting in the past");
+                }
+            }
+            // validate timings
+            validateTimings(newStartTime, newEndTime);
+        }
+        List<User> users = List.of();
+        if (isParticipantsChanged){
+            users = checkUsersAvailability(newParticipantIds, bookingId, newStartTime, newEndTime);
+        }
+        return users;
     }
 
     @Override
@@ -92,10 +185,10 @@ public class BookingServiceImpl implements BookingService{
 
     }
 
-    private List<User> checkUsersAvailability(BookingDTO dto, LocalDateTime startTime, LocalDateTime endTime) {
-        var users = userRepository.findAllById(dto.getParticipantIds());
+    private List<User> checkUsersAvailability(Set<Long> participantIds,Long bookingId, LocalDateTime startTime, LocalDateTime endTime) {
+        var users = userRepository.findAllById(participantIds);
 
-        if (users.size() != dto.getParticipantIds().size()) {
+        if (users.size() != participantIds.size()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Some participant IDs are invalid");
         }
 
@@ -107,7 +200,7 @@ public class BookingServiceImpl implements BookingService{
         });
 
         validateParticipants(unavailableUsers, " is buys", " are busy");
-        var conflictingUsers = bookingRepository.findConflictingParticipantNames(dto.getParticipantIds(), startTime, endTime);
+        var conflictingUsers = bookingRepository.findConflictingParticipantNames(participantIds,bookingId, startTime, endTime);
         validateParticipants(conflictingUsers, " already has a meeting", " already have meetings");
         return users;
     }
@@ -125,6 +218,8 @@ public class BookingServiceImpl implements BookingService{
     }
 
     private MeetingRoom checkMeetingRoomAvailability(Long meetingRoomId,
+                                                     Long bookingId,
+                                                     boolean hasOnlyTimeChanged,
                                                      Set<Long> participantIds,
                                                      LocalDateTime startTime,
                                                      LocalDateTime endTime) {
@@ -138,10 +233,16 @@ public class BookingServiceImpl implements BookingService{
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room capacity exceeded");
         }
 
-        var isMeetingRoomBooked = meetingRoomRepository.existsOverlappingBooking(meetingRoomId, startTime, endTime);
+        boolean isMeetingRoomBooked;
+        if (hasOnlyTimeChanged){
+            isMeetingRoomBooked = bookingRepository.existsOverlappingBookingAndNotById(meetingRoomId, bookingId, startTime, endTime);
+        }else{
+            isMeetingRoomBooked = bookingRepository.existsOverlappingBooking(meetingRoomId, startTime, endTime);
+        }
         if (isMeetingRoomBooked) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Meeting room is already booked for the selected time slot");
         }
+
         return meetingRoom;
     }
 
