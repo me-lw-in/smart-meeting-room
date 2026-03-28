@@ -52,6 +52,12 @@ public class SecurityConfig {
                                 "/api/devices"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
+                        // Everyone
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/bookings"
+                        ).authenticated()
+
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling( c ->{

@@ -38,14 +38,14 @@ public class Booking {
     private LocalDateTime endTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, insertable = false)
     private BookingStatus status;
 
     @ManyToMany
     @JoinTable(
             name = "booking_participants",
-            joinColumns = @JoinColumn(name = "booking_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id")
+            joinColumns = @JoinColumn(name = "booking_id", nullable = false),
+            inverseJoinColumns = @JoinColumn(name = "user_id", nullable = false)
     )
     private Set<User> participants;
 }
