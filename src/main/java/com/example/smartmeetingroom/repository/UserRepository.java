@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.repository;
 
+import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.enums.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.status = :status WHERE u.id IN :ids")
     void updateUserStatus(List<Long> ids, UserStatus status);
+
+    @Query("""
+        SELECT new com.example.smartmeetingroom.dto.user.UserDTO(
+            u.firstName,
+            u.lastName,
+            u.email,
+            u.createdAt,
+            u.roles.roleName,
+            u.status
+        )
+        FROM User u
+
+    """)
+    List<UserDTO> findAllUsers();
+
+    @Query("""
+    SELECT count(u.id)
+    FROM User u
+    """)
+    Long getTotalUsers();
 }

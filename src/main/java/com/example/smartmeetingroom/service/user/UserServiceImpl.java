@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.service.user;
 
 import com.example.smartmeetingroom.dto.user.UserDTO;
+import com.example.smartmeetingroom.dto.user.UserResponseDTO;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
@@ -11,6 +12,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -50,5 +55,11 @@ public class UserServiceImpl implements UserService{
         user.setPassword(password);
         user.setRoles(role);
         userRepository.save(user);
+    }
+
+    public UserResponseDTO getAllUsers() {
+        var allUsers = userRepository.findAllUsers();
+        var totalUsers = userRepository.getTotalUsers();
+        return new UserResponseDTO(totalUsers, allUsers);
     }
 }

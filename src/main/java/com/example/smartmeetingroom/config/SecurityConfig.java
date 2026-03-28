@@ -43,13 +43,17 @@ public class SecurityConfig {
                                 "/api/users/admin"
                         ).hasRole("SUPER_ADMIN")
 
-                        // Admin only
+                        // Super Admin and Admin only
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/roles",
                                 "/api/meeting-rooms",
                                 "/api/device-types",
                                 "/api/devices"
+                                ).hasAnyRole("SUPER_ADMIN", "ADMIN")
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/users"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
                         // Everyone
