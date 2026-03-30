@@ -59,10 +59,12 @@ public class SecurityConfig {
                         // Everyone
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/bookings"
+                                "/api/bookings",
+                                "/api/users/me/email-change"
                         ).authenticated()
                         .requestMatchers(
                                 HttpMethod.PATCH,
+                                "/api/users",
                                 "/api/bookings/*"
                         ).authenticated()
 

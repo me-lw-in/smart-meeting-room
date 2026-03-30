@@ -1,11 +1,14 @@
 package com.example.smartmeetingroom.service.user;
 
+import com.example.smartmeetingroom.dto.user.UpdateUserProfileRequestDTO;
 import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.dto.user.UserResponseDTO;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
+import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,9 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -62,4 +62,40 @@ public class UserServiceImpl implements UserService{
         var totalUsers = userRepository.getTotalUsers();
         return new UserResponseDTO(totalUsers, allUsers);
     }
+
+    @Override
+    @Transactional
+    public void changeEmail(User user, String email) {
+        user.setEmail(email);
+    }
+
+    @Override
+    @Transactional
+    public void updateUserInfo(UpdateUserProfileRequestDTO dto) {
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        var user = userRepository.findById(currentUserId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+        );
+        if (dto.getFirstName() != null && !dto.getFirstName().isBlank()) {
+            String firstName = StringCapitalizeUtil.capitalizeEachWord(dto.getFirstName().trim());
+            user.setFirstName(firstName);
+        }
+        if (dto.getLastName() != null && !dto.getLastName().isBlank()) {
+            String lastName = StringCapitalizeUtil.capitalizeEachWord(dto.getLastName().trim());
+            user.setLastName(lastName);
+        }
+        if (dto.getOldPassword() != null && !dto.getOldPassword().isBlank()){
+            if (passwordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
+                if (dto.getNewPassword() == null  || dto.getNewPassword().isBlank()){
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password is required");
+                }
+                var newPassword = passwordEncoder.encode(dto.getNewPassword());
+                user.setPassword(newPassword);
+            }else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Incorrect old password");
+            }
+
+        }
+    }
+
 }

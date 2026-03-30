@@ -37,4 +37,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     FROM User u
     """)
     Long getTotalUsers();
+
+    boolean existsByEmail(String email);
 }
