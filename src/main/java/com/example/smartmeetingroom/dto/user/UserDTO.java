@@ -1,14 +1,12 @@
 package com.example.smartmeetingroom.dto.user;
 
 import com.example.smartmeetingroom.enums.UserStatus;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 
 import java.time.LocalDateTime;
 
@@ -31,6 +29,10 @@ public class UserDTO {
     @NotBlank(message = "Password is required")
     @Size(min = 6, max = 100, message = "Password must be at least 6 characters")
     private String password;
+
+    private String token;
+
+    private String userType;
 
     private LocalDateTime createdAt;
 

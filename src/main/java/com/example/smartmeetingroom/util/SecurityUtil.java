@@ -6,6 +6,9 @@ public class SecurityUtil {
 
     public static Long getCurrentUserId() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
+        if ("anonymousUser".equals(auth.getPrincipal())){
+            return null;
+        }
         return (Long) auth.getPrincipal();
     }
 

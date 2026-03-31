@@ -1,6 +1,8 @@
 package com.example.smartmeetingroom.controller;
 
 import com.example.smartmeetingroom.dto.auth.LoginDTO;
+import com.example.smartmeetingroom.dto.user.EmailDTO;
+import com.example.smartmeetingroom.dto.user.PasswordChangeDTO;
 import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.service.jwt.JwtService;
 import com.example.smartmeetingroom.service.user.UserService;
@@ -43,8 +45,33 @@ class AuthController {
     }
 
     @GetMapping("/verify")
-    public ResponseEntity<Void> verifyToken(@RequestParam String token) {
-        emailVerificationService.verifyToken(token);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<String> verifyToken(@RequestParam String token) {
+        var url = emailVerificationService.verifyToken(token);
+        return ResponseEntity.status(HttpStatus.OK).body(url);
     }
+
+    @PostMapping("/singup/email")
+    public ResponseEntity<String> singupEmail(@RequestBody @Valid EmailDTO dto) {
+        emailVerificationService.singUpUser(dto);
+        return ResponseEntity.status(HttpStatus.OK).body("Verification link sent successfully");
+    }
+
+    @PostMapping("/complete-singup")
+    public ResponseEntity<Void> completeSingup(@RequestBody @Valid UserDTO dto) {
+        userService.createUser(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/password/forgot")
+    public ResponseEntity<String> requestPasswordReset(@RequestBody @Valid EmailDTO dto) {
+        emailVerificationService.requestPasswordReset(dto);
+        return ResponseEntity.status(HttpStatus.OK).body("Verification link sent successfully");
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<String> resetPassword(@RequestBody @Valid PasswordChangeDTO dto){
+        userService.resetPassword(dto);
+        return ResponseEntity.status(HttpStatus.OK).body("Password changed successfully");
+    }
+
 }

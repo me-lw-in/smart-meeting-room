@@ -10,7 +10,6 @@ import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Getter
@@ -40,13 +39,19 @@ public class EmailVerification {
     @Column(name = "expiry_time", nullable = false)
     private LocalDateTime expiryTime;
 
-    @ColumnDefault("0")
-    @Column(name = "is_verified", nullable = false, insertable = false)
-    private Boolean isVerified;
-
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "verified_at", insertable = false)
+    private LocalDateTime verifiedAt;
+
+    @Column(name = "verified_valid_until", insertable = false)
+    private LocalDateTime verifiedValidUntil;
+
+    @ColumnDefault("0")
+    @Column(name = "is_used", nullable = false, insertable = false)
+    private Boolean isUsed;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
