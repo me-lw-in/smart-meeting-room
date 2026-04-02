@@ -37,6 +37,9 @@ public class BookingServiceImpl implements BookingService{
         LocalDateTime startTime = dto.getStartTime();
         LocalDateTime endTime = dto.getEndTime();
         var loggedInUserId = SecurityUtil.getCurrentUserId();
+        if (loggedInUserId == null){
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
         dto.getParticipantIds().add(loggedInUserId);
 
         // Check timings
@@ -69,10 +72,13 @@ public class BookingServiceImpl implements BookingService{
 
         // logged in userId
         var loggedInUserId = SecurityUtil.getCurrentUserId();
+        if (loggedInUserId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
+        }
 
         // check if he is the owner of the booking
         var role = SecurityUtil.getCurrentUserRole();
-        if (!loggedInUserId.equals(booking.getCreatedBy().getId()) && !role.equals("SUPER_ADMIN") && !role.equals("ADMIN")){
+        if (!loggedInUserId.equals(booking.getCreatedBy().getId()) && !"SUPER_ADMIN".equals(role) && !"ADMIN".equals(role)){
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to modify this booking");
         }
 
@@ -97,30 +103,34 @@ public class BookingServiceImpl implements BookingService{
         boolean isRoomChanged = dto.getMeetingRoomId() != null && (!dto.getMeetingRoomId().equals(oldRoomId));
         // check for time change
         boolean isTimeChanged = (dto.getStartTime() != null && !newStartTime.equals(oldStartTime)) || (dto.getEndTime() != null && !newEndTime.equals(oldEndTime));
+        if (isTimeChanged) {
+            validateTimings(newStartTime, newEndTime);
+        }
         // check for participant changes
         boolean isParticipantsChanged = !oldParticipantIds.equals(newParticipantIds);
 
         MeetingRoom meetingRoom = null;
-        List<User> users;
+        List<User> users = null;
+        if (isParticipantsChanged) {
+            users = validateTimeAndUsers(dto, bookingId, isTimeChanged, newStartTime, newEndTime, true, newParticipantIds);
+        }
 
         if (booking.getStatus() != BookingStatus.STARTED || LocalDateTime.now().isBefore(oldStartTime)){
-            users = validateTimeAndUsers(dto, bookingId, isTimeChanged, newStartTime, newEndTime, isParticipantsChanged, newParticipantIds);
             if (isRoomChanged){
                 boolean hasOnlyTimeChanged = false;
                 meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, hasOnlyTimeChanged, newParticipantIds, newStartTime, newEndTime);
             }else if (isTimeChanged){
-
                 boolean hasOnlyTimeChanged = true;
                 meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, hasOnlyTimeChanged, newParticipantIds, newStartTime, newEndTime);
             }
         }else {
-            users = validateTimeAndUsers(dto, bookingId, isTimeChanged, newStartTime, newEndTime, isParticipantsChanged, newParticipantIds);
+            meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, true, newParticipantIds, newStartTime, newEndTime);
         }
-
 
         if (meetingRoom != null){
             booking.setRoom(meetingRoom);
         }
+
         if (users != null) {
             booking.setParticipants(new HashSet<>(users));
         }
