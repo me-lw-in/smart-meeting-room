@@ -23,7 +23,7 @@ public class Device {
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "device_type_id")
-    private DeviceType deviceType;
+    private AssetType deviceType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)

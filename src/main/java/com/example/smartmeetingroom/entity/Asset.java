@@ -37,16 +37,16 @@ public class Asset {
     private LocalDate warrantyExpiry;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at", nullable = false, insertable = false)
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    @OnDelete(action = OnDeleteAction.RESTRICT)
     @JoinColumn(name = "room_id", nullable = false)
     private MeetingRoom room;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    @OnDelete(action = OnDeleteAction.RESTRICT)
     @JoinColumn(name = "asset_type_id", nullable = false)
     private AssetType assetType;
 

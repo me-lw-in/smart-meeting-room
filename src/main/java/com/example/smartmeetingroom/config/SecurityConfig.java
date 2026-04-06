@@ -48,14 +48,23 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/roles",
                                 "/api/meeting-rooms",
-                                "/api/device-types",
-                                "/api/devices",
-                                "/api/users"
+                                "/api/users",
+                                "/api/assets",
+                                "/api/asset-types"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/asset-types/*",
+                                "/api/assets/*"
+                        ).hasAnyRole("SUPER_ADMIN", "ADMIN")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/asset-types/*"
+                        ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
                         // Everyone
                         .requestMatchers(
