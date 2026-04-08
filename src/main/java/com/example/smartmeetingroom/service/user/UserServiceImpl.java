@@ -12,6 +12,7 @@ import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class UserServiceImpl implements UserService{
@@ -83,6 +85,7 @@ public class UserServiceImpl implements UserService{
         userRepository.save(user);
         verificationObj.setIsUsed(true);
         emailVerificationRepository.save(verificationObj);
+        log.info("User created successfully with role: {}", userType);
     }
 
     public void createUserByAdminOrSuperAdmin(UserDTO dto){
@@ -120,7 +123,7 @@ public class UserServiceImpl implements UserService{
         user.setPassword(password);
         user.setRoles(role);
         userRepository.save(user);
-
+        log.info("User created successfully by {} with role {}", currenUserRole, userType);
     }
 
     public UserResponseDTO getAllUsers() {
@@ -139,6 +142,7 @@ public class UserServiceImpl implements UserService{
     @Transactional
     public void updateUserInfo(UpdateUserProfileRequestDTO dto) {
         var currentUserId = SecurityUtil.getCurrentUserId();
+        log.info("User profile update request for userId: {}", currentUserId);
         if (currentUserId == null){
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Please authenticate.");
         }
@@ -154,6 +158,7 @@ public class UserServiceImpl implements UserService{
             user.setLastName(lastName);
         }
         if (dto.getOldPassword() != null && !dto.getOldPassword().isBlank()){
+            log.info("Password change requested for userId: {}", currentUserId);
             if (passwordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
                 if (dto.getNewPassword() == null  || dto.getNewPassword().isBlank()){
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password is required");
@@ -161,6 +166,7 @@ public class UserServiceImpl implements UserService{
                 var newPassword = passwordEncoder.encode(dto.getNewPassword());
                 user.setPassword(newPassword);
             }else {
+                log.warn("Incorrect old password for userId: {}", currentUserId);
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Incorrect old password");
             }
 
@@ -170,6 +176,7 @@ public class UserServiceImpl implements UserService{
 
     @Transactional
     public void resetPassword(PasswordChangeDTO dto) {
+        log.info("Password reset process started");
         var verificationObj = emailVerificationRepository.findByToken(dto.getToken()).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invalid token")
         );
@@ -182,6 +189,6 @@ public class UserServiceImpl implements UserService{
         var user = verificationObj.getUser();
         user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
         verificationObj.setIsUsed(true);
-
+        log.info("Password reset successful");
     }
 }

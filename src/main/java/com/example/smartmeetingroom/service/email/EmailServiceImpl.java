@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.service.email;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -9,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class EmailServiceImpl implements EmailService{
@@ -18,6 +20,7 @@ public class EmailServiceImpl implements EmailService{
 
     @Override
     public void sendEmail(String toEmail, String token, String expiryTime) {
+        log.info("Sending verification email to: {}", toEmail);
         String subject = "Verify your email";
         String verificationLink = "http://localhost:8080/api/auth/verify?token=" + token;
 
@@ -32,7 +35,9 @@ public class EmailServiceImpl implements EmailService{
 
         try {
             javaMailSender.send(mail);
+            log.info("Email sent successfully to: {}", toEmail);
         } catch (RuntimeException e){
+            log.error("Failed to send email to: {}", toEmail, e);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Failed to send email. Please try again later.");
         }
     }

@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.service.asset;
 
 import com.example.smartmeetingroom.dto.asset.AssetDTO;
+import com.example.smartmeetingroom.dto.asset.AssetUpdateDTO;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.entity.Asset;
 import com.example.smartmeetingroom.enums.AssetStatus;
@@ -8,7 +9,10 @@ import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.AssetTypeRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
 import com.example.smartmeetingroom.specification.AssetSpecification;
+import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +40,28 @@ public class AssetServiceImpl implements AssetService {
             "purchaseDate",
             "warrantyExpiry"
     );
+    private static final Set<String> ADMIN_ALLOWED_UPDATE_FIELDS = Set.of(
+            "assetName",
+            "warrantyExpiry",
+            "meetingRoomId",
+            "assetStatus"
+    );
+    private static final Set<String> SUPER_ADMIN_ALLOWED_UPDATE_FIELDS = Set.of(
+            "assetName",
+            "serialNumber",
+            "purchaseDate",
+            "warrantyExpiry",
+            "meetingRoomId",
+            "assetTypeId",
+            "assetStatus"
+    );
+    private static final Set<AssetStatus> ADMIN_ALLOWED_UPDATE_STATUS = Set.of(
+            AssetStatus.AVAILABLE,
+            AssetStatus.IN_USE,
+            AssetStatus.UNDER_MAINTENANCE,
+            AssetStatus.DAMAGED
+    );
+    private final ObjectMapper objectMapper;
 
     public void addAsset(AssetDTO dto){
         Set<AssetStatus> ALLOWED_CREATE_STATUS  = Set.of(AssetStatus.AVAILABLE, AssetStatus.PENDING_INSTALLATION);
@@ -50,10 +76,10 @@ public class AssetServiceImpl implements AssetService {
         if (!ALLOWED_CREATE_STATUS.contains(dto.getAssetStatus())){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status for asset creation");
         }
-        if (assetRepository.existsByAssetNameAndAssetTypeIdNot(assetName, dto.getDeviceTypeId())) {
+        if (assetRepository.existsByAssetNameAndAssetTypeIdNot(assetName, dto.getAssetTypeId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, assetName + " is already exists for other type");
         }
-        var assetType = assetTypeRepository.findById(dto.getDeviceTypeId()).orElseThrow(
+        var assetType = assetTypeRepository.findById(dto.getAssetTypeId()).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset type not found")
         );
         var room = meetingRoomRepository.findById(dto.getMeetingRoomId()).orElseThrow(
@@ -102,6 +128,114 @@ public class AssetServiceImpl implements AssetService {
         return getAssetDTOPageResponseDTO(content);
     }
 
+    @Transactional
+    public void updateAsset(Long assetId, JsonNode request) {
+        var userRole = SecurityUtil.getCurrentUserRole();
+        if (userRole == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
+        }
+        var asset = assetRepository.findById(assetId).orElseThrow(
+                ()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found.")
+        );
+        var dto = objectMapper.convertValue(request, AssetUpdateDTO.class);
+        if ("ADMIN".equalsIgnoreCase(userRole)) {
+            // update name, extend warranty, change room , change status
+            checkAllowedFields(request, ADMIN_ALLOWED_UPDATE_FIELDS);
+            // change asset name
+            validateAndUpdateAssetNameAndRoom(dto, asset);
+
+            //extend warranty
+            if (dto.getWarrantyExpiry() != null) {
+                if (dto.getWarrantyExpiry().isBefore(asset.getWarrantyExpiry())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "You can only extend warranty.");
+                }
+                asset.setWarrantyExpiry(dto.getWarrantyExpiry());
+            }
+            //change status
+            if (dto.getAssetStatus() != null) {
+                if (!ADMIN_ALLOWED_UPDATE_STATUS.contains(dto.getAssetStatus())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Admin cannot set status to " + dto.getAssetStatus());
+                }
+                asset.setStatus(dto.getAssetStatus());
+            }
+        } else if ("SUPER_ADMIN".equalsIgnoreCase(userRole)) {
+            checkAllowedFields(request, SUPER_ADMIN_ALLOWED_UPDATE_FIELDS);
+            validateAndUpdateFields(assetId, dto, asset);
+        }
+    }
+
+    private void validateAndUpdateFields(Long assetId, AssetUpdateDTO dto, Asset asset) {
+        validateAndUpdateAssetNameAndRoom(dto, asset);
+        //change purchase date
+        if (dto.getPurchaseDate() != null) {
+            if (dto.getWarrantyExpiry() != null) {
+                if (dto.getPurchaseDate().isAfter(dto.getWarrantyExpiry()))
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New purchase date cannot be after new warranty.");
+            }else if (dto.getPurchaseDate().isAfter(asset.getWarrantyExpiry())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New purchase date cannot be after existing warranty.");
+            }
+            asset.setPurchaseDate(dto.getPurchaseDate());
+        }
+
+        // change warranty
+        if (dto.getWarrantyExpiry() != null) {
+            if (dto.getWarrantyExpiry().isBefore(asset.getPurchaseDate())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Warranty cannot be before purchase date.");
+            }
+            asset.setWarrantyExpiry(dto.getWarrantyExpiry());
+        }
+
+        // change serial number
+        if (dto.getSerialNumber() != null) {
+            var serialNumber = dto.getSerialNumber().trim().toUpperCase();
+            if (assetRepository.existsBySerialNumberAndIdNot(serialNumber, assetId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, serialNumber + " already exits.");
+            }
+            asset.setSerialNumber(serialNumber);
+        }
+
+        // change asset type
+        if (dto.getAssetTypeId() != null){
+            var assetName = dto.getAssetName() == null ? asset.getAssetName() : dto.getAssetName();
+            if (assetRepository.existsByAssetNameAndAssetTypeIdNotAndIdNot(assetName, dto.getAssetTypeId(), assetId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, assetName + " cannot exist in multiple types");
+            }
+            asset.setAssetType(assetTypeRepository.getReferenceById(dto.getAssetTypeId()));
+        }
+
+        // change status
+        if (dto.getAssetStatus() != null) {
+            asset.setStatus(dto.getAssetStatus());
+        }
+    }
+
+    private void validateAndUpdateAssetNameAndRoom(AssetUpdateDTO dto, Asset asset) {
+        // change asset name
+        if (dto.getAssetName() != null && !dto.getAssetName().isBlank()){
+            asset.setAssetName(StringCapitalizeUtil.capitalizeEachWord(dto.getAssetName().trim()));
+        }
+
+        //change room
+        if (dto.getMeetingRoomId() != null) {
+            if (!asset.getRoom().getId().equals(dto.getMeetingRoomId())){
+                var meetingRoom = meetingRoomRepository.findById(dto.getMeetingRoomId()).orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting room not found")
+                );
+                asset.setRoom(meetingRoom);
+            }
+        }
+    }
+
+    private static void checkAllowedFields(JsonNode request, Set<String> allowedFields) {
+        request.fieldNames().forEachRemaining(
+                f -> {
+                    if (!allowedFields.contains(f)){
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "Invalid field: " + f);
+                    }
+                }
+        );
+    }
 
     private static PageResponseDTO<AssetDTO> getAssetDTOPageResponseDTO(Page<Asset> content) {
         Page<AssetDTO> dtoPage = content.map(a -> {

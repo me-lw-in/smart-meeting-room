@@ -5,9 +5,11 @@ import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.entity.User;
+import com.example.smartmeetingroom.enums.AssetStatus;
 import com.example.smartmeetingroom.enums.BookingStatus;
 import com.example.smartmeetingroom.enums.RoomStatus;
 import com.example.smartmeetingroom.enums.UserStatus;
+import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.BookingRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
 public class BookingServiceImpl implements BookingService{
 
     private final UserRepository userRepository;
+    private final AssetRepository assetRepository;
     private final BookingRepository bookingRepository;
     private final MeetingRoomRepository meetingRoomRepository;
 
@@ -70,17 +73,7 @@ public class BookingServiceImpl implements BookingService{
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found")
         );
 
-        // logged in userId
-        var loggedInUserId = SecurityUtil.getCurrentUserId();
-        if (loggedInUserId == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
-        }
-
-        // check if he is the owner of the booking
-        var role = SecurityUtil.getCurrentUserRole();
-        if (!loggedInUserId.equals(booking.getCreatedBy().getId()) && !"SUPER_ADMIN".equals(role) && !"ADMIN".equals(role)){
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to modify this booking");
-        }
+        validateAccess(booking);
 
         // old data
         var oldRoomId = booking.getRoom().getId();
@@ -139,6 +132,20 @@ public class BookingServiceImpl implements BookingService{
 
     }
 
+    private static void validateAccess(Booking booking) {
+        // logged in userId
+        var loggedInUserId = SecurityUtil.getCurrentUserId();
+        if (loggedInUserId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
+        }
+
+        // check if he is the owner of the booking
+        var role = SecurityUtil.getCurrentUserRole();
+        if (!loggedInUserId.equals(booking.getCreatedBy().getId()) && !"SUPER_ADMIN".equals(role) && !"ADMIN".equals(role)){
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to modify this booking");
+        }
+    }
+
     private List<User> validateTimeAndUsers(PatchBookingDTO dto,
                                             Long bookingId,
                                             boolean isTimeChanged,
@@ -165,7 +172,6 @@ public class BookingServiceImpl implements BookingService{
     }
 
     @Override
-    @Transactional
     public void startMeetings(LocalDateTime now) {
         var bookingIds = bookingRepository
                 .findIdsByStatusAndStartTimeLessThanEqual(BookingStatus.CONFIRMED, now);
@@ -177,10 +183,10 @@ public class BookingServiceImpl implements BookingService{
 
         meetingRoomRepository.updateRoomStatus(roomIds, RoomStatus.OCCUPIED);
         userRepository.updateUserStatus(userIds, UserStatus.IN_MEETING);
+        assetRepository.updateStatusByRoomAndCurrentStatus(roomIds, AssetStatus.AVAILABLE, AssetStatus.IN_USE);
     }
 
     @Override
-    @Transactional
     public void endMeetings(LocalDateTime now) {
         var bookingIds = bookingRepository
                 .findIdsByStatusAndEndTimeLessThanEqual(BookingStatus.STARTED, now);
@@ -192,7 +198,7 @@ public class BookingServiceImpl implements BookingService{
 
         meetingRoomRepository.updateRoomStatus(roomIds, RoomStatus.AVAILABLE);
         userRepository.updateUserStatus(userIds, UserStatus.AVAILABLE);
-
+        assetRepository.updateStatusByRoomAndCurrentStatus(roomIds, AssetStatus.IN_USE, AssetStatus.AVAILABLE);
     }
 
     private List<User> checkUsersAvailability(Set<Long> participantIds,Long bookingId, LocalDateTime startTime, LocalDateTime endTime) {

@@ -32,9 +32,9 @@ public class AssetDTO {
     @Positive(message = "Meeting room ID must be a positive number")
     private Long meetingRoomId;
 
-    @NotNull(message = "Device type is required")
-    @Positive(message = "Device type ID must be a positive number")
-    private Short deviceTypeId;
+    @NotNull(message = "Asset type is required")
+    @Positive(message = "Asset type ID must be a positive number")
+    private Short assetTypeId;
 
     @NotNull(message = "Status is required")
     private AssetStatus assetStatus;

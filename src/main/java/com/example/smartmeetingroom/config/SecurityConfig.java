@@ -64,7 +64,8 @@ public class SecurityConfig {
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.PATCH,
-                                "/api/asset-types/*"
+                                "/api/asset-types/*",
+                                "/api/assets/*"
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
                         // Everyone
