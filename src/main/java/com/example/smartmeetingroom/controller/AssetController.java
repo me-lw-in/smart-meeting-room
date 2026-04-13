@@ -42,7 +42,7 @@ class AssetController {
 
     @GetMapping
     public ResponseEntity<PageResponseDTO<AssetDTO>> getAllAssets(
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Short typeId,

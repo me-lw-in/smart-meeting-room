@@ -5,6 +5,7 @@ import com.example.smartmeetingroom.dto.asset.AssetUpdateDTO;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.entity.Asset;
 import com.example.smartmeetingroom.enums.AssetStatus;
+import com.example.smartmeetingroom.repository.AppConfigRepository;
 import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.AssetTypeRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
@@ -24,8 +25,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -34,33 +37,8 @@ public class AssetServiceImpl implements AssetService {
     private final AssetRepository assetRepository;
     private final AssetTypeRepository assetTypeRepository;
     private final MeetingRoomRepository meetingRoomRepository;
-    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
-            "assetName",
-            "serialNumber",
-            "purchaseDate",
-            "warrantyExpiry"
-    );
-    private static final Set<String> ADMIN_ALLOWED_UPDATE_FIELDS = Set.of(
-            "assetName",
-            "warrantyExpiry",
-            "meetingRoomId",
-            "assetStatus"
-    );
-    private static final Set<String> SUPER_ADMIN_ALLOWED_UPDATE_FIELDS = Set.of(
-            "assetName",
-            "serialNumber",
-            "purchaseDate",
-            "warrantyExpiry",
-            "meetingRoomId",
-            "assetTypeId",
-            "assetStatus"
-    );
-    private static final Set<AssetStatus> ADMIN_ALLOWED_UPDATE_STATUS = Set.of(
-            AssetStatus.AVAILABLE,
-            AssetStatus.IN_USE,
-            AssetStatus.UNDER_MAINTENANCE,
-            AssetStatus.DAMAGED
-    );
+    private final AppConfigRepository appConfigRepository;
+
     private final ObjectMapper objectMapper;
 
     public void addAsset(AssetDTO dto){
@@ -119,10 +97,11 @@ public class AssetServiceImpl implements AssetService {
                                     Long meetingRoomId,
                                     AssetStatus status,
                                     List<String> sortParam) {
+        var allowedSortFields = getAllowedFields("ALLOWED_SORT_FIELDS");
         var specification = AssetSpecification.getAssets(search,typeId,meetingRoomId,status);
-        var orders = getOrders(sortParam);
+        var orders = getOrders(sortParam, allowedSortFields);
         Sort sort = Sort.by(orders);
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PageRequest.of(page - 1, size, sort);
 
         var content =  assetRepository.findAll(specification, pageable);
         return getAssetDTOPageResponseDTO(content);
@@ -140,7 +119,8 @@ public class AssetServiceImpl implements AssetService {
         var dto = objectMapper.convertValue(request, AssetUpdateDTO.class);
         if ("ADMIN".equalsIgnoreCase(userRole)) {
             // update name, extend warranty, change room , change status
-            checkAllowedFields(request, ADMIN_ALLOWED_UPDATE_FIELDS);
+            var adminAllowedUpdateFields = getAllowedFields("ADMIN_ALLOWED_UPDATE_FIELDS");
+            checkAllowedFields(request, adminAllowedUpdateFields);
             // change asset name
             validateAndUpdateAssetNameAndRoom(dto, asset);
 
@@ -153,14 +133,19 @@ public class AssetServiceImpl implements AssetService {
             }
             //change status
             if (dto.getAssetStatus() != null) {
-                if (!ADMIN_ALLOWED_UPDATE_STATUS.contains(dto.getAssetStatus())) {
+                var adminAllowedUpdateStatus = getAllowedFields("ADMIN_ALLOWED_UPDATE_STATUS")
+                        .stream()
+                        .map(AssetStatus::valueOf)
+                        .collect(Collectors.toSet());
+                if (!adminAllowedUpdateStatus.contains(dto.getAssetStatus())) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Admin cannot set status to " + dto.getAssetStatus());
                 }
                 asset.setStatus(dto.getAssetStatus());
             }
         } else if ("SUPER_ADMIN".equalsIgnoreCase(userRole)) {
-            checkAllowedFields(request, SUPER_ADMIN_ALLOWED_UPDATE_FIELDS);
+            var superAdminAllowedUpdateFields = getAllowedFields("SUPER_ADMIN_ALLOWED_UPDATE_FIELDS");
+            checkAllowedFields(request, superAdminAllowedUpdateFields);
             validateAndUpdateFields(assetId, dto, asset);
         }
     }
@@ -251,14 +236,14 @@ public class AssetServiceImpl implements AssetService {
         });
         var pageResponse = new PageResponseDTO<AssetDTO>();
         pageResponse.setContent(dtoPage.getContent());
-        pageResponse.setPage(dtoPage.getNumber());
+        pageResponse.setPage(dtoPage.getNumber() + 1);
         pageResponse.setSize(dtoPage.getSize());
         pageResponse.setTotalPages(dtoPage.getTotalPages());
         pageResponse.setTotalElements(dtoPage.getTotalElements());
         return pageResponse;
     }
 
-    private static List<Sort.Order> getOrders(List<String> sortParam) {
+    private static List<Sort.Order> getOrders(List<String> sortParam, Set<String> allowedSortFields) {
         List<Sort.Order> orders = new ArrayList<>();
         if (sortParam != null && !sortParam.isEmpty()) {
             for (String sortValue : sortParam) {
@@ -266,7 +251,8 @@ public class AssetServiceImpl implements AssetService {
                     var sortValueParts = sortValue.split(",");
                     var field = sortValueParts[0].trim();
                     var direction = sortValueParts[1].trim().length() > 1 ? sortValueParts[1].trim() : "asc";
-                    if (!ALLOWED_SORT_FIELDS.contains(field)) {
+
+                    if (!allowedSortFields.contains(field)) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sort field: " + field);
                     }
                     if (!direction.equalsIgnoreCase("asc") && !direction.equalsIgnoreCase("desc")) {
@@ -283,5 +269,11 @@ public class AssetServiceImpl implements AssetService {
             orders.add(new Sort.Order(Sort.Direction.ASC, "purchaseDate"));
         }
         return orders;
+    }
+
+    private Set<String> getAllowedFields(String key) {
+        var allowedValues = appConfigRepository.findByConfigKey(key)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Config not found: " + key));
+        return new HashSet<>(allowedValues.getConfigValue());
     }
 }

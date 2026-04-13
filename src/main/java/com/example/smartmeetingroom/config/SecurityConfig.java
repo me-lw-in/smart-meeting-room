@@ -70,6 +70,10 @@ public class SecurityConfig {
 
                         // Everyone
                         .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/meeting-rooms"
+                        ).authenticated()
+                        .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/bookings",
                                 "/api/users/me/email-change"

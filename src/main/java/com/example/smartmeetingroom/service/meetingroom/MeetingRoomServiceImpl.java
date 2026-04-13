@@ -44,15 +44,23 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
         meetingRoomRepository.save(meetingRoom);
     }
 
-    public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRooms(int page, int size, Integer floor, RoomStatus meetingRoomStatus) {
+    public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRooms(
+            int page, int size, Integer floor, RoomStatus meetingRoomStatus) {
+
         var specification = MeetingRoomSpecification.getAllMeetingRooms(floor, meetingRoomStatus);
         var sort = Sort.by(Sort.Direction.ASC, "floor");
-        var pageable = PageRequest.of(page, size,sort);
-        var rooms  = meetingRoomRepository.findAll(specification, pageable);
+        var pageable = PageRequest.of(page, size, sort);
 
-        Set<Long> roomIds = rooms.getContent().stream().map(MeetingRoom::getId).collect(Collectors.toSet());
+        var rooms = meetingRoomRepository.findAll(specification, pageable);
+
+        Set<Long> roomIds = rooms.getContent()
+                .stream()
+                .map(MeetingRoom::getId)
+                .collect(Collectors.toSet());
+
         if (roomIds.isEmpty()) {
-            return new PageResponseDTO<>(List.of(), page, size, rooms.getTotalElements(), rooms.getTotalPages());
+            return new PageResponseDTO<>(List.of(), page, size,
+                    rooms.getTotalElements(), rooms.getTotalPages());
         }
 
         var totalAssets = assetRepository.getTotalAssets(roomIds);
@@ -64,13 +72,60 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
             totalAssetMap.put((Long) row[0], (Long) row[1]);
         }
 
-        Map<Long, Long> totalAssetWorkingMap = new HashMap<>();
-        Map<Long, Long> totalAssetNonWorkingMap = new HashMap<>();
+        Map<Long, Long> workingMap = new HashMap<>();
+        Map<Long, Long> nonWorkingMap = new HashMap<>();
 
         for (Object[] row : assetStats) {
-            totalAssetWorkingMap.put((Long) row[0], (Long) row[1]);
-            totalAssetNonWorkingMap.put((Long) row[0], (Long) row[2]);
+            workingMap.put((Long) row[0], (Long) row[1]);
+            nonWorkingMap.put((Long) row[0], (Long) row[2]);
         }
-        return new PageResponseDTO<>(List.of(), page, size, rooms.getTotalElements(), rooms.getTotalPages());
+
+
+        Map<Long, List<AssetCountDTO>> assetNameMap = new HashMap<>();
+
+        for (Object[] row : assetNameAndCount) {
+            Long roomId = (Long) row[0];
+            String assetName = (String) row[1];
+            Long count = (Long) row[2];
+
+            AssetCountDTO dto = new AssetCountDTO();
+            dto.setAssetName(assetName);
+            dto.setCount(count);
+
+            assetNameMap
+                    .computeIfAbsent(roomId, k -> new ArrayList<>())
+                    .add(dto);
+        }
+
+
+        List<MeetingRoomResponseDTO> responseList = rooms.getContent().stream().map(room -> {
+
+            Long roomId = room.getId();
+
+            MeetingRoomResponseDTO dto = new MeetingRoomResponseDTO();
+            dto.setRoomId(roomId);
+            dto.setRoomName(room.getRoomName());
+            dto.setFloor(room.getFloor());
+            dto.setCapacity(room.getCapacity());
+            dto.setStatus(room.getStatus().name());
+
+            // 🔥 Handle NULL cases (IMPORTANT)
+            dto.setTotalDevices(totalAssetMap.getOrDefault(roomId, 0L));
+            dto.setWorkingDevices(workingMap.getOrDefault(roomId, 0L));
+            dto.setNonWorkingDevices(nonWorkingMap.getOrDefault(roomId, 0L));
+
+            dto.setAssets(assetNameMap.getOrDefault(roomId, List.of()));
+
+            return dto;
+
+        }).toList();
+
+        return new PageResponseDTO<>(
+                responseList,
+                page,
+                size,
+                rooms.getTotalElements(),
+                rooms.getTotalPages()
+        );
     }
 }
