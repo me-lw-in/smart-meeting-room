@@ -5,14 +5,9 @@ import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.entity.User;
-import com.example.smartmeetingroom.enums.AssetStatus;
-import com.example.smartmeetingroom.enums.BookingStatus;
-import com.example.smartmeetingroom.enums.RoomStatus;
-import com.example.smartmeetingroom.enums.UserStatus;
-import com.example.smartmeetingroom.repository.AssetRepository;
-import com.example.smartmeetingroom.repository.BookingRepository;
-import com.example.smartmeetingroom.repository.MeetingRoomRepository;
-import com.example.smartmeetingroom.repository.UserRepository;
+import com.example.smartmeetingroom.enums.*;
+import com.example.smartmeetingroom.repository.*;
+import com.example.smartmeetingroom.service.notification.NotificationService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -35,7 +30,10 @@ public class BookingServiceImpl implements BookingService{
     private final BookingRepository bookingRepository;
     private final MeetingRoomRepository meetingRoomRepository;
 
+    private final NotificationService notificationService;
+
     @Override
+    @Transactional
     public void bookMeetingRoom(BookingDTO dto){
         LocalDateTime startTime = dto.getStartTime();
         LocalDateTime endTime = dto.getEndTime();
@@ -55,6 +53,7 @@ public class BookingServiceImpl implements BookingService{
         // Check participant exits and availability
         var users = checkUsersAvailability(dto.getParticipantIds(), null, startTime, endTime);
 
+        // Booking
         var booking = new Booking();
         booking.setCreatedBy(userRepository.getReferenceById(loggedInUserId));
         booking.setRoom(meetingRoom);
@@ -63,7 +62,10 @@ public class BookingServiceImpl implements BookingService{
         booking.setParticipants(new HashSet<>(users));
         bookingRepository.save(booking);
 
+        notificationService.sendMeetingCreatedNotifications(dto.getParticipantIds(), loggedInUserId, startTime, meetingRoom.getRoomName(),NotificationType.MEETING_CREATED);
     }
+
+
 
     @Override
     @Transactional

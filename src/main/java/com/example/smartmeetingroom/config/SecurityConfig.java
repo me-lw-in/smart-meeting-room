@@ -71,12 +71,14 @@ public class SecurityConfig {
                         // Everyone
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/meeting-rooms"
+                                "/api/meeting-rooms",
+                                "/api/notifications/*"
                         ).authenticated()
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/bookings",
-                                "/api/users/me/email-change"
+                                "/api/users/me/email-change",
+                                "/api/notifications/*"
                         ).authenticated()
                         .requestMatchers(
                                 HttpMethod.PATCH,
