@@ -1,9 +1,8 @@
 package com.example.smartmeetingroom.enums;
 
 public enum AssetServiceStatus {
-    SCHEDULED,
+    OPEN,
     IN_PROGRESS,
-    COMPLETED,
-    CANCELLED,
-    FAILED
+    RESOLVED,
+    CANCELLED
 }

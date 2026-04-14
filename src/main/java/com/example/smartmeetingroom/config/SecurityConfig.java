@@ -50,7 +50,8 @@ public class SecurityConfig {
                                 "/api/meeting-rooms",
                                 "/api/users",
                                 "/api/assets",
-                                "/api/asset-types"
+                                "/api/asset-types",
+                                "/api/asset-service"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,

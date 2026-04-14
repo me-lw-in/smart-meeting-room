@@ -25,23 +25,29 @@ public class AssetService {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "scheduled_date", nullable = false)
+    @Column(name = "scheduled_date", insertable = false)
     private LocalDate scheduledDate;
 
     @Column(name = "completed_date", insertable = false)
     private LocalDate completedDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, insertable = false)
     private AssetServiceStatus status;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at", nullable = false, insertable = false)
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "asset_id", nullable = false)
     private Asset asset;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "raised_by")
+    private User raisedBy;
 
 }
