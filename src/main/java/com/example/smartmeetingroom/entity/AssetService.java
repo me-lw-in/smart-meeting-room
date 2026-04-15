@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.entity;
 
+import com.example.smartmeetingroom.enums.AssetServiceDecision;
 import com.example.smartmeetingroom.enums.AssetServiceStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -49,5 +50,20 @@ public class AssetService {
     @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "raised_by")
     private User raisedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "decision", insertable = false)
+    private AssetServiceDecision decision;
+
+    @Column(name = "remark", insertable = false)
+    private String remark;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "reviewed_by", insertable = false)
+    private User reviewedBy;
+
+    @Column(name = "reviewed_at", insertable = false)
+    private LocalDateTime reviewedAt;
 
 }

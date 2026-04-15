@@ -29,7 +29,6 @@ public class BookingServiceImpl implements BookingService{
     private final AssetRepository assetRepository;
     private final BookingRepository bookingRepository;
     private final MeetingRoomRepository meetingRoomRepository;
-
     private final NotificationService notificationService;
 
     @Override

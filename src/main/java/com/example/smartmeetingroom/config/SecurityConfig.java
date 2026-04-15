@@ -51,12 +51,13 @@ public class SecurityConfig {
                                 "/api/users",
                                 "/api/assets",
                                 "/api/asset-types",
-                                "/api/asset-service"
+                                "/api/asset-service/**"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users",
-                                "/api/assets"
+                                "/api/assets",
+                                "/api/asset-service/**"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.DELETE,

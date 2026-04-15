@@ -10,6 +10,7 @@ import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.AssetTypeRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
 import com.example.smartmeetingroom.specification.AssetSpecification;
+import com.example.smartmeetingroom.util.ConfigUtil;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,7 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -37,7 +37,6 @@ public class AssetServiceImpl implements AssetService {
     private final AssetRepository assetRepository;
     private final AssetTypeRepository assetTypeRepository;
     private final MeetingRoomRepository meetingRoomRepository;
-    private final AppConfigRepository appConfigRepository;
 
     private final ObjectMapper objectMapper;
 
@@ -97,7 +96,7 @@ public class AssetServiceImpl implements AssetService {
                                     Long meetingRoomId,
                                     AssetStatus status,
                                     List<String> sortParam) {
-        var allowedSortFields = getAllowedFields("ALLOWED_SORT_FIELDS");
+        var allowedSortFields = ConfigUtil.getAllowedValues("ALLOWED_SORT_FIELDS");
         var specification = AssetSpecification.getAssets(search,typeId,meetingRoomId,status);
         var orders = getOrders(sortParam, allowedSortFields);
         Sort sort = Sort.by(orders);
@@ -119,7 +118,7 @@ public class AssetServiceImpl implements AssetService {
         var dto = objectMapper.convertValue(request, AssetUpdateDTO.class);
         if ("ADMIN".equalsIgnoreCase(userRole)) {
             // update name, extend warranty, change room , change status
-            var adminAllowedUpdateFields = getAllowedFields("ADMIN_ALLOWED_UPDATE_FIELDS");
+            var adminAllowedUpdateFields = ConfigUtil.getAllowedValues("ADMIN_ALLOWED_UPDATE_FIELDS");
             checkAllowedFields(request, adminAllowedUpdateFields);
             // change asset name
             validateAndUpdateAssetNameAndRoom(dto, asset);
@@ -133,7 +132,7 @@ public class AssetServiceImpl implements AssetService {
             }
             //change status
             if (dto.getAssetStatus() != null) {
-                var adminAllowedUpdateStatus = getAllowedFields("ADMIN_ALLOWED_UPDATE_STATUS")
+                var adminAllowedUpdateStatus = ConfigUtil.getAllowedValues("ADMIN_ALLOWED_UPDATE_STATUS")
                         .stream()
                         .map(AssetStatus::valueOf)
                         .collect(Collectors.toSet());
@@ -144,7 +143,7 @@ public class AssetServiceImpl implements AssetService {
                 asset.setStatus(dto.getAssetStatus());
             }
         } else if ("SUPER_ADMIN".equalsIgnoreCase(userRole)) {
-            var superAdminAllowedUpdateFields = getAllowedFields("SUPER_ADMIN_ALLOWED_UPDATE_FIELDS");
+            var superAdminAllowedUpdateFields = ConfigUtil.getAllowedValues("SUPER_ADMIN_ALLOWED_UPDATE_FIELDS");
             checkAllowedFields(request, superAdminAllowedUpdateFields);
             validateAndUpdateFields(assetId, dto, asset);
         }
@@ -269,11 +268,5 @@ public class AssetServiceImpl implements AssetService {
             orders.add(new Sort.Order(Sort.Direction.ASC, "purchaseDate"));
         }
         return orders;
-    }
-
-    private Set<String> getAllowedFields(String key) {
-        var allowedValues = appConfigRepository.findByConfigKey(key)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Config not found: " + key));
-        return new HashSet<>(allowedValues.getConfigValue());
     }
 }
