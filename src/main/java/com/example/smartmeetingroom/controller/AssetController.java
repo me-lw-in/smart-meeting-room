@@ -3,13 +3,16 @@ package com.example.smartmeetingroom.controller;
 import com.example.smartmeetingroom.dto.asset.AssetDTO;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.enums.AssetStatus;
+import com.example.smartmeetingroom.enums.ExportFormat;
 import com.example.smartmeetingroom.service.asset.AssetService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -60,5 +63,26 @@ class AssetController {
         assetService.updateAsset(assetId, request);
         log.info("Asset updated successfully for assetId: {}", assetId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportAsset(@RequestParam(defaultValue = "EXCEL") ExportFormat format) {
+        var headers = new HttpHeaders();
+        byte[] fileData = null;
+        switch (format) {
+            case EXCEL -> {
+                log.info("Generating an excel document of assets");
+                headers.setContentType(MediaType.parseMediaType( "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+                headers.setContentDispositionFormData("attachment", "assets.xlsx");
+                fileData = assetService.generateExcel();
+            }
+            case PDF -> {
+                log.info("Generating an pdf document of assets");
+                headers.setContentType(MediaType.APPLICATION_PDF);
+                headers.setContentDispositionFormData("attachment", "assets.pdf");
+                fileData = assetService.generatePdf();
+            }
+        }
+        return new ResponseEntity<>(fileData, headers, HttpStatus.OK);
     }
 }

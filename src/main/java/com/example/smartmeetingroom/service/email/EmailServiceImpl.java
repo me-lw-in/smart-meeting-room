@@ -5,10 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -18,26 +19,30 @@ public class EmailServiceImpl implements EmailService{
 
     private JavaMailSender javaMailSender;
 
+    @Async
     @Override
-    public void sendEmail(String toEmail, String token, String expiryTime) {
-        log.info("Sending verification email to: {}", toEmail);
-        String subject = "Verify your email";
-        String verificationLink = "http://localhost:8080/api/auth/verify?token=" + token;
-
-
-        String message = "Click the link to verify your email:\n" + verificationLink + "\n\nThis link expires at: " + expiryTime;
+    public void sendEmail(String to, List<String> cc, List<String> bcc, String subject, String body) {
+        log.info("Sending verification email to: {}", to);
 
         SimpleMailMessage mail = new SimpleMailMessage();
-        mail.setTo(toEmail);
+        mail.setTo(to);
+
+        if (cc != null && !cc.isEmpty()) {
+            mail.setCc(cc.toArray(new String[0]));
+        }
+
+        if (bcc != null && !bcc.isEmpty()) {
+            mail.setBcc(bcc.toArray(new String[0]));
+        }
+
         mail.setSubject(subject);
-        System.out.println(message);
-        mail.setText(message);
+        mail.setText(body);
 
         try {
             javaMailSender.send(mail);
-            log.info("Email sent successfully to: {}", toEmail);
+            log.info("Email sent successfully to: {}", to);
         } catch (RuntimeException e){
-            log.error("Failed to send email to: {}", toEmail, e);
+            log.error("Failed to send email to: {}", to, e);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Failed to send email. Please try again later.");
         }
     }

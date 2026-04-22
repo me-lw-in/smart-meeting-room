@@ -1,8 +1,8 @@
 package com.example.smartmeetingroom.service.email;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 public interface EmailService {
 
-    public void sendEmail(String toEmail, String token, String expiryTime);
+    public void sendEmail(String to, List<String> cc, List<String> bcc, String subject, String body);
 }

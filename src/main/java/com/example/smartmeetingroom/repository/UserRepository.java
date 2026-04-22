@@ -39,4 +39,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Long getTotalUsers();
 
     boolean existsByEmail(String email);
+
+    Optional<User> findByIdAndRoles_Id(Long id, Byte rolesId);
 }

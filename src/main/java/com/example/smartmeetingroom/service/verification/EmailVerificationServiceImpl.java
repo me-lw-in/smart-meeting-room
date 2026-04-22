@@ -50,8 +50,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
         verificationObj.setExpiryTime(expirationTime);
         verificationObj.setUser(null);
         emailVerificationRepository.save(verificationObj);
-
-        emailService.sendEmail(email, token, formattedTime);
+        sendVerificationToken(email, token, formattedTime);
     }
 
     @Transactional
@@ -82,7 +81,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
         verificationObj.get().setVerifiedAt(null);
         verificationObj.get().setVerifiedValidUntil(null);
 
-        emailService.sendEmail(email, newToken, formattedTime);
+        sendVerificationToken(email, newToken, formattedTime);
 
 
     }
@@ -116,8 +115,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
         emailVerification.setExpiryTime(expirationTime);
         emailVerification.setUser(userRepository.getReferenceById(userId));
         emailVerificationRepository.save(emailVerification);
-
-        emailService.sendEmail(email, token, formattedTime);
+        sendVerificationToken(email, token, formattedTime);
     }
 
     private String generateVerificationToken(){
@@ -208,7 +206,14 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
         verificationObj.setExpiryTime(expirationTime);
         verificationObj.setUser(user);
         emailVerificationRepository.save(verificationObj);
-        emailService.sendEmail(email, token, formattedTime);
+        sendVerificationToken(email, token, formattedTime);
 
+    }
+
+    private void sendVerificationToken(String to, String token, String expiryTime){
+        String subject = "Verify your email";
+        String verificationLink = "http://localhost:8080/api/auth/verify?token=" + token;
+        String body = "Click the link to verify your email:\n" + verificationLink + "\n\nThis link expires at: " + expiryTime;
+        emailService.sendEmail(to, null, null, subject, body);
     }
 }

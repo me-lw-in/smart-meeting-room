@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.repository;
 
+import com.example.smartmeetingroom.dto.asset.AssetDTO;
 import com.example.smartmeetingroom.entity.Asset;
 import com.example.smartmeetingroom.enums.AssetStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -57,4 +58,20 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
         GROUP BY a.room.id, a.assetName
     """)
     List<Object[]> getAssetsByName(Set<Long> roomIds);
+
+    @Query("""
+        SELECT new com.example.smartmeetingroom.dto.asset.AssetDTO(
+            a.assetName,
+            a.serialNumber,
+            a.purchaseDate,
+            a.warrantyExpiry,
+            r.roomName,
+            at.name,
+            a.status
+        )
+        FROM Asset a
+        JOIN a.room r
+        JOIN a.assetType at
+    """)
+    List<AssetDTO> getAllAssets();
 }

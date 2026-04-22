@@ -29,9 +29,6 @@ public class AssetService {
     @Column(name = "scheduled_date", insertable = false)
     private LocalDate scheduledDate;
 
-    @Column(name = "completed_date", insertable = false)
-    private LocalDate completedDate;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, insertable = false)
     private AssetServiceStatus status;
@@ -65,5 +62,15 @@ public class AssetService {
 
     @Column(name = "reviewed_at", insertable = false)
     private LocalDateTime reviewedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "technician_id")
+    private User technician;
+
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
 }

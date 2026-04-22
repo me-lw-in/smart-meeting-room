@@ -5,7 +5,6 @@ import com.example.smartmeetingroom.dto.asset.AssetUpdateDTO;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.entity.Asset;
 import com.example.smartmeetingroom.enums.AssetStatus;
-import com.example.smartmeetingroom.repository.AppConfigRepository;
 import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.AssetTypeRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
@@ -15,8 +14,16 @@ import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itextpdf.text.*;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,11 +32,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AssetServiceImpl implements AssetService {
@@ -268,5 +277,127 @@ public class AssetServiceImpl implements AssetService {
             orders.add(new Sort.Order(Sort.Direction.ASC, "purchaseDate"));
         }
         return orders;
+    }
+
+    public byte[] generateExcel() {
+        var assets = assetRepository.getAllAssets();
+
+        try(Workbook workbook = new XSSFWorkbook()) {
+            CreationHelper createHelper = workbook.getCreationHelper();
+            CellStyle dateStyle = workbook.createCellStyle();
+            dateStyle.setDataFormat(
+                    createHelper.createDataFormat().getFormat("yyyy-MM-dd")
+            );
+
+            Sheet sheet = workbook.createSheet("Assets");
+
+            // headers
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Sl No");
+            header.createCell(1).setCellValue("Asset Name");
+            header.createCell(2).setCellValue("Serial Number");
+            header.createCell(3).setCellValue("Purchase Date");
+            header.createCell(4).setCellValue("Warranty");
+            header.createCell(5).setCellValue("Meeting Room");
+            header.createCell(6).setCellValue("Asset Type");
+            header.createCell(7).setCellValue("Status");
+
+            int rowNum = 1;
+            int slNo = 1;
+
+            for (var asset : assets) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(slNo++);
+                row.createCell(1).setCellValue(asset.getAssetName());
+                row.createCell(2).setCellValue(asset.getSerialNumber());
+
+                var purchaseDate = row.createCell(3);
+                purchaseDate.setCellStyle(dateStyle);
+                purchaseDate.setCellValue(asset.getPurchaseDate());
+
+                var warrantyCell = row.createCell(4);
+                warrantyCell.setCellStyle(dateStyle);
+                warrantyCell.setCellValue(asset.getWarrantyExpiry());
+
+                row.createCell(5).setCellValue(asset.getMeetingRoomName());
+                row.createCell(6).setCellValue(asset.getAssetTypeName());
+                row.createCell(7).setCellValue(asset.getAssetStatus().toString());
+            }
+
+            // adjust column width
+            for (int i = 0; i < 8; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }catch (Exception e) {
+            log.error("Error generating Excel file", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate Excel file");
+        }
+    }
+
+    public byte[] generatePdf() {
+        var assets = assetRepository.getAllAssets();
+        try {
+            Document document = new Document();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfWriter.getInstance(document, out);
+
+            document.open();
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            Paragraph title = new Paragraph("Asset Report", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+
+            document.add(title);
+            document.add(new Paragraph(" "));
+
+            // table with columns
+            PdfPTable table = new PdfPTable(8);
+            table.setWidthPercentage(100);
+
+            // header
+            addHeaderCell(table, "Sl No");
+            addHeaderCell(table, "Name");
+            addHeaderCell(table, "Serial Number");
+            addHeaderCell(table, "Purchase Date");
+            addHeaderCell(table, "Warranty");
+            addHeaderCell(table, "Room");
+            addHeaderCell(table, "Asset Type");
+            addHeaderCell(table, "Status");
+
+            int slNo = 1;
+            for (var asset : assets) {
+                table.addCell(String.valueOf(slNo++));
+                table.addCell(asset.getAssetName());
+                table.addCell(asset.getSerialNumber());
+                table.addCell(asset.getPurchaseDate().toString());
+                table.addCell(asset.getWarrantyExpiry().toString());
+                table.addCell(asset.getMeetingRoomName());
+                table.addCell(asset.getAssetTypeName());
+                table.addCell(asset.getAssetStatus().toString());
+            }
+            document.add(table);
+            document.close();
+            return out.toByteArray();
+        } catch (DocumentException e) {
+            log.error("Error generating PDF file", e);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to generate PDF file"
+            );
+        }
+    }
+
+    private void addHeaderCell(PdfPTable table, String text) {
+
+        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD);
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+
+        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        cell.setPadding(5);
+
+        table.addCell(cell);
     }
 }

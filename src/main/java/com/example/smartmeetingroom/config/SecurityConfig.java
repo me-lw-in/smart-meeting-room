@@ -43,6 +43,16 @@ public class SecurityConfig {
                                 "/api/users/admin"
                         ).hasRole("SUPER_ADMIN")
 
+                        // Technician
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/techniciain/*"
+                        ).hasRole("TECHNICIAN")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/techniciain/**"
+                        ).hasRole("TECHNICIAN")
+
                         // Super Admin and Admin only
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -56,7 +66,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users",
-                                "/api/assets",
+                                "/api/assets/**",
                                 "/api/asset-service/**"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(

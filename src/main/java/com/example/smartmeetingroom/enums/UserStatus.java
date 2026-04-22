@@ -4,6 +4,7 @@ public enum UserStatus {
     AVAILABLE,
     NOT_AVAILABLE,
     ON_LEAVE,
-    IN_MEETING
+    IN_MEETING,
+    ASSIGNED
 }
 

@@ -22,4 +22,8 @@ public interface AssetService {
                                                    List<String> sortParam);
 
     public void updateAsset(Long assetId, JsonNode request);
+
+    public byte[] generateExcel();
+
+    public byte[] generatePdf();
 }

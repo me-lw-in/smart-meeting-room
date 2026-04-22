@@ -96,8 +96,8 @@ public class UserServiceImpl implements UserService{
         if (dto.getUserType() == null){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User type is required.");
         }
-        if (!isSuperAdmin) {
-            userType = "EMPLOYEE";
+        if (!isSuperAdmin && dto.getUserType().equalsIgnoreCase("SUPER_ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only Super admin can create super admins.");
         }else {
             userType = dto.getUserType().toUpperCase().trim();
         }

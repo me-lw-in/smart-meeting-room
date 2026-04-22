@@ -3,6 +3,7 @@ package com.example.smartmeetingroom.dto.assetservice;
 import com.example.smartmeetingroom.enums.AssetServiceDecision;
 import com.example.smartmeetingroom.enums.AssetServiceStatus;
 import com.example.smartmeetingroom.enums.AssetStatus;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AssetServiceDTO {
 
     private Long id;
@@ -22,13 +24,15 @@ public class AssetServiceDTO {
     @FutureOrPresent(message = "Date cannot be in past.")
     private LocalDate scheduledDate;
 
-    private LocalDate completedDate;
+    private LocalDateTime startedAt;
+
+    private LocalDateTime completedAt;
 
     private AssetServiceStatus assetServiceStatus;
 
     private LocalDateTime createdAt;
 
-    private String raiseBy;
+    private String raisedBy;
 
     private String assetName;
 
@@ -39,22 +43,30 @@ public class AssetServiceDTO {
 
     private String remark;
 
+    private Long technicianId;
+
+    private String technicianName;
+
     public AssetServiceDTO(Long id,
                            String description,
                            LocalDate scheduledDate,
-                           LocalDate completedDate,
+                           LocalDateTime startedAt,
+                           LocalDateTime completedAt,
                            AssetServiceStatus assetServiceStatus,
                            LocalDateTime createdAt,
-                           String raiseBy,
+                           String raisedBy,
+                           String technicianName,
                            String assetName,
                            AssetStatus assetStatus) {
         this.id = id;
         this.description = description;
         this.scheduledDate = scheduledDate;
-        this.completedDate = completedDate;
+        this.startedAt = startedAt;
+        this.completedAt = completedAt;
         this.assetServiceStatus = assetServiceStatus;
         this.createdAt = createdAt;
-        this.raiseBy = raiseBy;
+        this.raisedBy = raisedBy;
+        this.technicianName = technicianName;
         this.assetName = assetName;
         this.assetStatus = assetStatus;
     }
