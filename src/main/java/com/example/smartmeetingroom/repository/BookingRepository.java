@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -90,4 +91,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                      LocalDateTime startTime,
                                      LocalDateTime endTime);
 
+    boolean existsByRoom_IdAndStatusInAndIsDeletedFalse(
+            Long room_id, Collection<BookingStatus> status
+    );
 }

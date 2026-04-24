@@ -5,12 +5,17 @@ import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomDTO;
 import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomResponseDTO;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.entity.MeetingRoom;
+import com.example.smartmeetingroom.enums.BookingStatus;
 import com.example.smartmeetingroom.enums.RoomStatus;
 import com.example.smartmeetingroom.repository.AssetRepository;
+import com.example.smartmeetingroom.repository.BookingRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
 import com.example.smartmeetingroom.specification.MeetingRoomSpecification;
+import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -20,11 +25,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class MeetingRoomServiceImpl implements MeetingRoomService{
 
     private final AssetRepository assetRepository;
+    private final BookingRepository bookingRepository;
     private final MeetingRoomRepository meetingRoomRepository;
 
     @Override
@@ -45,9 +52,18 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
     }
 
     public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRooms(
-            int page, int size, Integer floor, RoomStatus meetingRoomStatus) {
+            int page, int size, Integer floor, RoomStatus meetingRoomStatus, boolean includeDeleted) {
 
-        var specification = MeetingRoomSpecification.getAllMeetingRooms(floor, meetingRoomStatus);
+        String role = SecurityUtil.getCurrentUserRole();
+
+        // 🔒 Force restriction for non-admin users
+        boolean isAdmin = "SUPER_ADMIN".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+
+        if (!isAdmin) {
+            includeDeleted = false;
+        }
+
+        var specification = MeetingRoomSpecification.getAllMeetingRooms(floor, meetingRoomStatus, includeDeleted);
         var sort = Sort.by(Sort.Direction.ASC, "floor");
         var pageable = PageRequest.of(page, size, sort);
 
@@ -63,9 +79,9 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
                     rooms.getTotalElements(), rooms.getTotalPages());
         }
 
-        var totalAssets = assetRepository.getTotalAssets(roomIds);
-        var assetStats = assetRepository.getAssetStats(roomIds);
-        var assetNameAndCount = assetRepository.getAssetsByName(roomIds);
+        var totalAssets = assetRepository.getTotalAssets(roomIds, includeDeleted);
+        var assetStats = assetRepository.getAssetStats(roomIds, includeDeleted);
+        var assetNameAndCount = assetRepository.getAssetsByName(roomIds, includeDeleted);
 
         Map<Long, Long> totalAssetMap = new HashMap<>();
         for (Object[] row : totalAssets) {
@@ -127,5 +143,27 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
                 rooms.getTotalElements(),
                 rooms.getTotalPages()
         );
+    }
+
+    @Override
+    @Transactional
+    public void deleteMeetingRoom(Long roomId) {
+
+        MeetingRoom room = meetingRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting room not found"));
+
+        boolean hasActiveBookings =
+                bookingRepository.existsByRoom_IdAndStatusInAndIsDeletedFalse(
+                        roomId,
+                        List.of(BookingStatus.CONFIRMED, BookingStatus.STARTED)
+                );
+        if (hasActiveBookings) {
+            throw new RuntimeException("Cannot delete room with active bookings");
+        }
+
+        room.setIsDeleted(true);
+        log.info("Meeting room and its assets are deleted by - {}", SecurityUtil.getCurrentUserId());
+
+        assetRepository.softDeleteByRoomId(roomId);
     }
 }

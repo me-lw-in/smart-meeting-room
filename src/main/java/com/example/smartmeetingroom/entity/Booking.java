@@ -4,10 +4,10 @@ import com.example.smartmeetingroom.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -48,4 +48,7 @@ public class Booking {
             inverseJoinColumns = @JoinColumn(name = "user_id", nullable = false)
     )
     private Set<User> participants;
+    @ColumnDefault("0")
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
 }

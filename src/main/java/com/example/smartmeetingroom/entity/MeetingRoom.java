@@ -4,6 +4,7 @@ import com.example.smartmeetingroom.enums.RoomStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 @Getter
 @Setter
@@ -27,4 +28,7 @@ public class MeetingRoom {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, insertable = false)
     private RoomStatus status;
+    @ColumnDefault("0")
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
 }

@@ -9,5 +9,7 @@ public interface MeetingRoomService {
 
     public void addMeetingRoom(MeetingRoomDTO dto);
 
-    public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRooms(int page, int size, Integer floor, RoomStatus meetingRoomStatus);
+    public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRooms(int page, int size, Integer floor, RoomStatus meetingRoomStatus, boolean includeDeleted);
+
+    public void deleteMeetingRoom(Long roomId);
 }

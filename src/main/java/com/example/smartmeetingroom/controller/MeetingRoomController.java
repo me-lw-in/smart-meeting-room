@@ -31,15 +31,22 @@ class MeetingRoomController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer floor,
-            @RequestParam(required = false) RoomStatus status
+            @RequestParam(required = false) RoomStatus status,
+            @RequestParam(defaultValue = "false") boolean includeDeleted
     ) {
         log.info("Fetch rooms request - page: {}, size: {}, floor: {}, status: {}",
                 page, size, floor, status);
 
-        var response = meetingRoomService.getAllMeetingRooms(page, size, floor, status);
+        var response = meetingRoomService.getAllMeetingRooms(page, size, floor, status, includeDeleted);
 
         log.info("Rooms fetched successfully - count: {}", response.getContent().size());
 
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteMeetingRoom(@PathVariable Long id) {
+        meetingRoomService.deleteMeetingRoom(id);
+        return ResponseEntity.ok("Meeting room is deleted");
     }
 }

@@ -40,7 +40,14 @@ public class SecurityConfig {
                         // Super admin only
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/users/admin"
+                                "/api/users/admin",
+                                "/api/roles"
+                        ).hasRole("SUPER_ADMIN").requestMatchers(
+                                HttpMethod.GET,
+                                "/api/roles"
+                        ).hasRole("SUPER_ADMIN").requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/roles/*"
                         ).hasRole("SUPER_ADMIN")
 
                         // Technician
@@ -56,7 +63,6 @@ public class SecurityConfig {
                         // Super Admin and Admin only
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/roles",
                                 "/api/meeting-rooms",
                                 "/api/users",
                                 "/api/assets",
@@ -72,6 +78,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/asset-types/*",
+                                "/api/meeting-rooms/*",
                                 "/api/assets/*"
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
