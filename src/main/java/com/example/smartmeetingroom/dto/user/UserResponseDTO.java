@@ -12,5 +12,7 @@ import java.util.List;
 public class UserResponseDTO {
     private Long totalUsers;
 
+    private int totalPages;
+
     private List<UserDTO> allUsers;
 }

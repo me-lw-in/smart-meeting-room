@@ -60,6 +60,29 @@ public class SecurityConfig {
                                 "/api/techniciain/**"
                         ).hasRole("TECHNICIAN")
 
+                        // Everyone
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/users/*",
+                                "/api/meeting-rooms",
+                                "/api/notifications/*"
+                        ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/bookings",
+                                "/api/users/me/email-change",
+                                "/api/notifications/*"
+                        ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/users",
+                                "/api/bookings/*"
+                        ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/users/me"
+                        ).authenticated()
+
                         // Super Admin and Admin only
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -77,6 +100,7 @@ public class SecurityConfig {
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.DELETE,
+                                "/api/users/*",
                                 "/api/asset-types/*",
                                 "/api/meeting-rooms/*",
                                 "/api/assets/*"
@@ -84,28 +108,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/asset-types/*",
-                                "/api/assets/*"
+                                "/api/assets/*",
+                                "/api/users/*/role"
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
-                        // Everyone
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/meeting-rooms",
-                                "/api/notifications/*"
-                        ).authenticated()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/bookings",
-                                "/api/users/me/email-change",
-                                "/api/notifications/*"
-                        ).authenticated()
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/users",
-                                "/api/bookings/*"
-                        ).authenticated()
 
                         .anyRequest().permitAll())
+
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling( c ->{
                     c.authenticationEntryPoint(

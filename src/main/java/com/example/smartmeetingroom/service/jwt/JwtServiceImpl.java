@@ -23,7 +23,7 @@ public class JwtServiceImpl implements JwtService{
 
     @Override
     public String generateToken(String email){
-        var user = userRepository.findByEmail(email).orElseThrow(
+        var user = userRepository.findByEmailAndIsDeletedFalse(email).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
         );
         return Jwts.builder()

@@ -11,7 +11,7 @@ public interface UserService {
 
     public void createUser(UserDTO dto);
 
-    public UserResponseDTO getAllUsers();
+    public UserResponseDTO getAllUsers(int page, int size, String role);
 
     public void changeEmail(User user, String email);
 
@@ -20,4 +20,10 @@ public interface UserService {
     public void createUserByAdminOrSuperAdmin(UserDTO dto);
 
     public void resetPassword(PasswordChangeDTO dto);
+
+    public UserDTO getMyProfile();
+
+    public void deleteUser(Long id);
+
+    public void updateUserRole(Long targetUserId, Byte roleId);
 }

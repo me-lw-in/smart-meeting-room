@@ -5,6 +5,7 @@ import com.example.smartmeetingroom.dto.user.UpdateUserProfileRequestDTO;
 import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.dto.user.UserResponseDTO;
 import com.example.smartmeetingroom.entity.User;
+import com.example.smartmeetingroom.enums.UserStatus;
 import com.example.smartmeetingroom.repository.EmailVerificationRepository;
 import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
@@ -13,6 +14,8 @@ import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -60,34 +63,47 @@ public class UserServiceImpl implements UserService{
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token does not match email.");
         }
 
-
-        if (userRepository.findByEmail(email).isPresent()){
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "User with " + email + " already exists!"
-            );
+        var user = userRepository.findByEmail(email);
+        if (user.isPresent() && user.get().getIsDeleted() == false) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already taken.");
         }
+
+
         var role = roleRepository.findByRoleName(userType.toUpperCase()).orElseThrow(
                 () -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         userType + " role not found"
                 )
         );
+
         String firstName = StringCapitalizeUtil.capitalizeEachWord(dto.getFirstName().trim());
         String lastName = StringCapitalizeUtil.capitalizeEachWord(dto.getLastName().trim());
         String password = passwordEncoder.encode(dto.getPassword());
-        var user = new User();
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setEmail(email);
-        user.setPassword(password);
-        user.setRoles(role);
-        userRepository.save(user);
+
+        if (user.isPresent() && user.get().getIsDeleted().equals(true)) {
+            user.get().setFirstName(firstName);
+            user.get().setLastName(lastName);
+            user.get().setEmail(email);
+            user.get().setPassword(password);
+            user.get().setRoles(role);
+            user.get().setStatus(UserStatus.AVAILABLE);
+            user.get().setIsDeleted(false);
+        } else {
+            var newUser = new User();
+            newUser.setFirstName(firstName);
+            newUser.setLastName(lastName);
+            newUser.setEmail(email);
+            newUser.setPassword(password);
+            newUser.setRoles(role);
+            userRepository.save(newUser);
+        }
+
         verificationObj.setIsUsed(true);
         emailVerificationRepository.save(verificationObj);
         log.info("User created successfully with role: {}", userType);
     }
 
+    @Transactional
     public void createUserByAdminOrSuperAdmin(UserDTO dto){
         var email = dto.getEmail().trim().toLowerCase();
         var currenUserRole = SecurityUtil.getCurrentUserRole();
@@ -101,11 +117,10 @@ public class UserServiceImpl implements UserService{
         }else {
             userType = dto.getUserType().toUpperCase().trim();
         }
-        if (userRepository.findByEmail(email).isPresent()){
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "User with " + email + " already exists!"
-            );
+
+        var user = userRepository.findByEmail(email);
+        if (user.isPresent() && user.get().getIsDeleted() == false) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already taken.");
         }
         var role = roleRepository.findByRoleName(userType.toUpperCase()).orElseThrow(
                 () -> new ResponseStatusException(
@@ -116,20 +131,47 @@ public class UserServiceImpl implements UserService{
         String firstName = StringCapitalizeUtil.capitalizeEachWord(dto.getFirstName().trim());
         String lastName = StringCapitalizeUtil.capitalizeEachWord(dto.getLastName().trim());
         String password = passwordEncoder.encode(dto.getPassword());
-        var user = new User();
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setEmail(email);
-        user.setPassword(password);
-        user.setRoles(role);
-        userRepository.save(user);
+
+        if (user.isPresent() && user.get().getIsDeleted().equals(true)) {
+            user.get().setFirstName(firstName);
+            user.get().setLastName(lastName);
+            user.get().setEmail(email);
+            user.get().setPassword(password);
+            user.get().setRoles(role);
+            user.get().setStatus(UserStatus.AVAILABLE);
+            user.get().setIsDeleted(false);
+        } else {
+            var newUser = new User();
+            newUser.setFirstName(firstName);
+            newUser.setLastName(lastName);
+            newUser.setEmail(email);
+            newUser.setPassword(password);
+            newUser.setRoles(role);
+            userRepository.save(newUser);
+        }
+
         log.info("User created successfully by {} with role {}", currenUserRole, userType);
     }
 
-    public UserResponseDTO getAllUsers() {
-        var allUsers = userRepository.findAllUsers();
-        var totalUsers = userRepository.getTotalUsers();
-        return new UserResponseDTO(totalUsers, allUsers);
+    public UserResponseDTO getAllUsers(int page, int size, String role) {
+
+        var currentUserId = SecurityUtil.getCurrentUserId();
+        var currentUserRole = SecurityUtil.getCurrentUserRole();
+
+        if ("ADMIN".equalsIgnoreCase(currentUserRole) && "SUPER_ADMIN".equalsIgnoreCase(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+        var usersPage = userRepository.findUsersWithFilters(
+                currentUserId,
+                currentUserRole,
+                role,
+                pageable
+        );
+
+        var users = usersPage.getContent();
+        return new UserResponseDTO(usersPage.getTotalElements(),usersPage.getTotalPages(), users);
     }
 
     @Override
@@ -190,5 +232,62 @@ public class UserServiceImpl implements UserService{
         user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
         verificationObj.setIsUsed(true);
         log.info("Password reset successful");
+    }
+
+    public UserDTO getMyProfile() {
+        var loggedInUserId = SecurityUtil.getCurrentUserId();
+        return userRepository.getMyProfile(loggedInUserId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found.")
+        );
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        var user = userRepository.findByIdAndIsDeletedFalse(id).orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found.")
+        );
+        user.setIsDeleted(true);
+    }
+
+    public void updateUserRole(Long targetUserId, Byte roleId) {
+
+        var currentUserId = SecurityUtil.getCurrentUserId();
+        var currentUserRole = SecurityUtil.getCurrentUserRole();
+
+        if (currentUserId.equals(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot change your own role");
+        }
+
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        var newRole = roleRepository.findById(roleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
+
+        if (currentUserRole.equals("ADMIN") && targetUser.getRoles().getRoleName().equals("SUPER_ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin cannot modify superadmin");
+        }
+
+        if (currentUserRole.equals("SUPER_ADMIN") && targetUser.getRoles().getRoleName().equals("SUPER_ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot modify another superadmin");
+        }
+
+        if (currentUserRole.equals("ADMIN")) {
+            if (newRole.getRoleName().equals("ADMIN") ||
+                    newRole.getRoleName().equals("SUPER_ADMIN")) {
+
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin cannot assign this role");
+            }
+        }
+
+        if (currentUserRole.equals("SUPER_ADMIN")) {
+            if (newRole.getRoleName().equals("SUPER_ADMIN")) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot assign this role");
+            }
+        }
+
+        targetUser.setRoles(newRole);
+        userRepository.save(targetUser);
+        log.info("User id - {} changed the role of user id- {} to -{}", currentUserId, targetUserId, newRole.getRoleName());
     }
 }

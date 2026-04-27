@@ -29,7 +29,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
     @Transactional
     public void singUpUser(EmailDTO dto) {
         String email = dto.getEmail().trim().toLowerCase();
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailAndIsDeletedFalse(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User with email already exists.");
         }
 
@@ -185,7 +185,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
     @Transactional
     public void requestPasswordReset(EmailDTO dto) {
         var email = dto.getEmail().trim().toLowerCase();
-        var user = userRepository.findByEmail(email).orElseThrow(
+        var user = userRepository.findByEmailAndIsDeletedFalse(email).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Please enter valid email.")
         );
 
