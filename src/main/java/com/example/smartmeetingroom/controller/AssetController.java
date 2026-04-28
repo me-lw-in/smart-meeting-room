@@ -51,9 +51,10 @@ class AssetController {
             @RequestParam(required = false) Short typeId,
             @RequestParam(required = false) Long meetingRoomId,
             @RequestParam(required = false) AssetStatus status,
+            @RequestParam(required = false) boolean onlyDeleted,
             @RequestParam(required = false) List<String> sort
     ) {
-        var content =  assetService.getAllAssets(page,size,search,typeId,meetingRoomId,status,sort);
+        var content =  assetService.getAllAssets(page,size,search,typeId,meetingRoomId,status,onlyDeleted, sort);
         return ResponseEntity.ok(content);
     }
 

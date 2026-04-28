@@ -28,7 +28,8 @@ public class MeetingRoom {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, insertable = false)
     private RoomStatus status;
+
     @ColumnDefault("0")
-    @Column(name = "is_deleted")
+    @Column(name = "is_deleted", insertable = false)
     private Boolean isDeleted;
 }

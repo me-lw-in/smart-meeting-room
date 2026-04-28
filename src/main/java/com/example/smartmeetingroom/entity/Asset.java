@@ -53,8 +53,9 @@ public class Asset {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private AssetStatus status;
+
     @ColumnDefault("0")
-    @Column(name = "is_deleted")
+    @Column(name = "is_deleted", insertable = false)
     private Boolean isDeleted;
 
 

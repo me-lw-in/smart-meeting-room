@@ -13,13 +13,18 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecificationExecutor<Asset> {
+
+    Optional<Asset> findBySerialNumber(String serialNumber);
+
+    Optional<Asset> findByIdAndIsDeletedFalse(Long id);
+
     boolean existsByAssetNameAndAssetTypeIdNot(String deviceName, Short deviceTypeId);
 
     boolean existsByAssetType_Id(Short assetTypeId);
 
     boolean existsBySerialNumber(String serialNumber);
 
-    Optional<Asset> findByIdAndRoom_Id(Long id, Long roomId);
+    Optional<Asset> findByIdAndRoom_IdAndIsDeletedFalse(Long id, Long roomId);
 
     @Modifying
     @Query("UPDATE Asset a SET a.status = :newStatus WHERE a.room.id IN :roomIds AND a.status = :currentStatus")
@@ -37,10 +42,10 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
         SELECT a.room.id, COUNT(a)
         FROM Asset a
         WHERE a.room.id IN :roomIds
-        AND (:includeDeleted = true OR a.isDeleted = false)
+        AND a.isDeleted = false
         GROUP BY a.room.id
     """)
-    List<Object[]> getTotalAssets(Set<Long> roomIds, boolean includeDeleted);
+    List<Object[]> getTotalAssets(Set<Long> roomIds);
 
     @Query("""
         SELECT a.room.id,
@@ -48,19 +53,19 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
         SUM(CASE WHEN a.status NOT IN ('ACTIVE','AVAILABLE','IN_USE') THEN 1 ELSE 0 END)
         FROM Asset a
         WHERE a.room.id IN :roomIds
-        AND (:includeDeleted = true OR a.isDeleted = false)
+        AND a.isDeleted = false
         GROUP BY a.room.id
     """)
-    List<Object[]> getAssetStats(Set<Long> roomIds, boolean includeDeleted);
+    List<Object[]> getAssetStats(Set<Long> roomIds);
 
     @Query("""
         SELECT a.room.id, a.assetName, COUNT(a)
         FROM Asset a
         WHERE a.room.id IN :roomIds
-        AND (:includeDeleted = true OR a.isDeleted = false)
+        AND a.isDeleted = false
         GROUP BY a.room.id, a.assetName
     """)
-    List<Object[]> getAssetsByName(Set<Long> roomIds, boolean includeDeleted);
+    List<Object[]> getAssetsByName(Set<Long> roomIds);
 
     @Query("""
         SELECT new com.example.smartmeetingroom.dto.asset.AssetDTO(
@@ -78,7 +83,4 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
     """)
     List<AssetDTO> getAllAssets();
 
-    @Modifying
-    @Query("UPDATE Asset a SET a.isDeleted = true WHERE a.room.id = :roomId")
-    void softDeleteByRoomId(Long roomId);
 }

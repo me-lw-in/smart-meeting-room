@@ -11,9 +11,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface MeetingRoomRepository extends JpaRepository<MeetingRoom, Long>, JpaSpecificationExecutor<MeetingRoom> {
-    boolean existsByRoomNameAndFloor(String roomName, Integer floorNumber);
 
-    Optional<MeetingRoom> findByIdAndStatus(Long id, RoomStatus status);
+    Optional<MeetingRoom> findByRoomNameAndFloor(String roomName, Integer floorNumber);
+
+
+    Optional<MeetingRoom> findByIdAndIsDeletedFalse(Long id);
 
 
     @Modifying(clearAutomatically = true)

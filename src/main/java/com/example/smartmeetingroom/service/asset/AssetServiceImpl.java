@@ -49,12 +49,17 @@ public class AssetServiceImpl implements AssetService {
 
     private final ObjectMapper objectMapper;
 
+    @Transactional
     public void addAsset(AssetDTO dto){
         Set<AssetStatus> ALLOWED_CREATE_STATUS  = Set.of(AssetStatus.AVAILABLE, AssetStatus.PENDING_INSTALLATION);
         var assetName = StringCapitalizeUtil.capitalizeEachWord(dto.getAssetName());
         var serialNumber = dto.getSerialNumber().trim().toUpperCase();
         if (!dto.getWarrantyExpiry().isAfter(dto.getPurchaseDate())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Warranty expiry must be after purchase date");
+        }
+        var asset = assetRepository.findBySerialNumber(serialNumber);
+        if (asset.isPresent() && asset.get().getIsDeleted() == false) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Serial number already exists");
         }
         if (assetRepository.existsBySerialNumber(serialNumber)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Serial number already exists");
@@ -72,30 +77,42 @@ public class AssetServiceImpl implements AssetService {
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting room not found")
         );
 
-        var asset = new Asset();
-        asset.setAssetName(assetName);
-        asset.setSerialNumber(dto.getSerialNumber());
-        asset.setPurchaseDate(dto.getPurchaseDate());
-        asset.setWarrantyExpiry(dto.getWarrantyExpiry());
-        asset.setRoom(room);
-        asset.setAssetType(assetType);
-        asset.setStatus(dto.getAssetStatus());
-        assetRepository.save(asset);
+        if (asset.isPresent()){
+            asset.get().setAssetName(assetName);
+            asset.get().setSerialNumber(dto.getSerialNumber());
+            asset.get().setPurchaseDate(dto.getPurchaseDate());
+            asset.get().setWarrantyExpiry(dto.getWarrantyExpiry());
+            asset.get().setRoom(room);
+            asset.get().setAssetType(assetType);
+            asset.get().setStatus(dto.getAssetStatus());
+        } else {
+            var newAsset = new Asset();
+            newAsset.setAssetName(assetName);
+            newAsset.setSerialNumber(dto.getSerialNumber());
+            newAsset.setPurchaseDate(dto.getPurchaseDate());
+            newAsset.setWarrantyExpiry(dto.getWarrantyExpiry());
+            newAsset.setRoom(room);
+            newAsset.setAssetType(assetType);
+            newAsset.setStatus(dto.getAssetStatus());
+            assetRepository.save(newAsset);
+        }
+
+
     }
 
     @Transactional
     public void deleteAsset(Long assetId, Long meetingRoomId) {
         Asset asset;
         if (meetingRoomId == null) {
-            asset = assetRepository.findById(assetId).orElseThrow(
+            asset = assetRepository.findByIdAndIsDeletedFalse(assetId).orElseThrow(
                     () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found")
             );
         }else {
-            asset = assetRepository.findByIdAndRoom_Id(assetId, meetingRoomId).orElseThrow(
+            asset = assetRepository.findByIdAndRoom_IdAndIsDeletedFalse(assetId, meetingRoomId).orElseThrow(
                     () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found in the specified room")
             );
         }
-       asset.setStatus(AssetStatus.RETIRED);
+       asset.setIsDeleted(true);
     }
 
     public PageResponseDTO<AssetDTO> getAllAssets(int page,
@@ -104,9 +121,10 @@ public class AssetServiceImpl implements AssetService {
                                     Short typeId,
                                     Long meetingRoomId,
                                     AssetStatus status,
+                                    boolean onlyDeleted,
                                     List<String> sortParam) {
         var allowedSortFields = ConfigUtil.getAllowedValues("ALLOWED_SORT_FIELDS");
-        var specification = AssetSpecification.getAssets(search,typeId,meetingRoomId,status);
+        var specification = AssetSpecification.getAssets(search,typeId,meetingRoomId,onlyDeleted,status);
         var orders = getOrders(sortParam, allowedSortFields);
         Sort sort = Sort.by(orders);
         Pageable pageable = PageRequest.of(page - 1, size, sort);
@@ -121,9 +139,13 @@ public class AssetServiceImpl implements AssetService {
         if (userRole == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
         }
-        var asset = assetRepository.findById(assetId).orElseThrow(
+        var asset = assetRepository.findByIdAndIsDeletedFalse(assetId).orElseThrow(
                 ()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found.")
         );
+
+        if (asset.getStatus() == AssetStatus.IN_USE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot update asset while it is being used.");
+        }
         var dto = objectMapper.convertValue(request, AssetUpdateDTO.class);
         if ("ADMIN".equalsIgnoreCase(userRole)) {
             // update name, extend warranty, change room , change status
@@ -212,7 +234,7 @@ public class AssetServiceImpl implements AssetService {
         //change room
         if (dto.getMeetingRoomId() != null) {
             if (!asset.getRoom().getId().equals(dto.getMeetingRoomId())){
-                var meetingRoom = meetingRoomRepository.findById(dto.getMeetingRoomId()).orElseThrow(
+                var meetingRoom = meetingRoomRepository.findByIdAndIsDeletedFalse(dto.getMeetingRoomId()).orElseThrow(
                         () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting room not found")
                 );
                 asset.setRoom(meetingRoom);

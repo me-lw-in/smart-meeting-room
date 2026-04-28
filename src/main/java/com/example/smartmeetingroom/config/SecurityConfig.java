@@ -64,7 +64,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users/*",
-                                "/api/meeting-rooms",
+                                "/api/meeting-rooms/details",
                                 "/api/notifications/*"
                         ).authenticated()
                         .requestMatchers(
@@ -96,6 +96,7 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/users",
                                 "/api/assets/**",
+                                "/api/meeting-rooms",
                                 "/api/asset-service/**"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
@@ -109,7 +110,8 @@ public class SecurityConfig {
                                 HttpMethod.PATCH,
                                 "/api/asset-types/*",
                                 "/api/assets/*",
-                                "/api/users/*/role"
+                                "/api/users/*/role",
+                                "/api/meeting-rooms/*"
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
 

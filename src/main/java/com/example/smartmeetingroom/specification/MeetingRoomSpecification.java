@@ -8,7 +8,10 @@ import org.springframework.data.jpa.domain.Specification;
 import java.util.ArrayList;
 
 public class MeetingRoomSpecification {
-    public static Specification<MeetingRoom> getAllMeetingRooms(Integer floor, RoomStatus meetingRoomStatus, boolean includeDeleted) {
+    public static Specification<MeetingRoom> getAllMeetingRooms(Integer floor,
+                                                                RoomStatus meetingRoomStatus,
+                                                                boolean includeDeleted,
+                                                                boolean onlyDeleted) {
         return (root, query, cb) -> {
             var predicates = new ArrayList<>();
             if (floor != null) {
@@ -17,8 +20,10 @@ public class MeetingRoomSpecification {
             if (meetingRoomStatus != null) {
                 predicates.add(cb.equal(root.get("status"),meetingRoomStatus));
             }
-            if (!includeDeleted) {
-                predicates.add(cb.equal(root.get("is_deleted"), false));
+            if (onlyDeleted) {
+                predicates.add(cb.equal(root.get("isDeleted"), true));
+            } else if (!includeDeleted) {
+                predicates.add(cb.equal(root.get("isDeleted"), false));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

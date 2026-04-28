@@ -14,6 +14,7 @@ public class AssetSpecification {
             String search,
             Short typeId,
             Long meetingRoomId,
+            boolean onlyDeleted,
             AssetStatus status
     ) {
         return (root, query, cb) -> {
@@ -41,6 +42,11 @@ public class AssetSpecification {
                 predicates.add(
                         cb.equal(root.get("status"), status)
                 );
+            }
+            if (onlyDeleted) {
+                predicates.add(cb.isTrue(root.get("isDeleted")));
+            } else {
+                predicates.add(cb.isFalse(root.get("isDeleted")));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

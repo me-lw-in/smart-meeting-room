@@ -2,12 +2,14 @@ package com.example.smartmeetingroom.dto.meetingrooms;
 
 import com.example.smartmeetingroom.dto.asset.AssetCountDTO;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class MeetingRoomResponseDTO {
     private Long roomId;
     private String roomName;
@@ -20,4 +22,12 @@ public class MeetingRoomResponseDTO {
     private Long nonWorkingDevices;
 
     private List<AssetCountDTO> assets;
+
+    public MeetingRoomResponseDTO(Long roomId, String roomName, Integer floor, Integer capacity, String status) {
+        this.roomId = roomId;
+        this.roomName = roomName;
+        this.floor = floor;
+        this.capacity = capacity;
+        this.status = status;
+    }
 }

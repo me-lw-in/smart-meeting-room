@@ -3,6 +3,7 @@ package com.example.smartmeetingroom.service.meetingroom;
 import com.example.smartmeetingroom.dto.asset.AssetCountDTO;
 import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomDTO;
 import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomResponseDTO;
+import com.example.smartmeetingroom.dto.meetingrooms.UpdateMeetingRoomRequest;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.enums.BookingStatus;
@@ -16,8 +17,11 @@ import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -35,35 +39,42 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
     private final MeetingRoomRepository meetingRoomRepository;
 
     @Override
+    @Transactional
     public void addMeetingRoom(MeetingRoomDTO dto){
         String roomName = StringCapitalizeUtil.capitalizeEachWord(dto.getMeetingRoomName());
         Integer floorNumber = dto.getFloorNumber();
         Integer capacity = dto.getCapacity();
 
-        if (meetingRoomRepository.existsByRoomNameAndFloor(roomName, floorNumber)) {
+        var meetingRoom = meetingRoomRepository.findByRoomNameAndFloor(roomName, floorNumber);
+        if (meetingRoom.isPresent() && meetingRoom.get().getIsDeleted() == false) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, roomName + " already exits in floor " + floorNumber);
+        }else if (meetingRoom.isPresent()) {
+            meetingRoom.get().setRoomName(roomName);
+            meetingRoom.get().setFloor(floorNumber);
+            meetingRoom.get().setCapacity(capacity);
+            meetingRoom.get().setStatus(RoomStatus.AVAILABLE);
+        }else {
+            var newMeetingRoom = new MeetingRoom();
+            newMeetingRoom.setRoomName(roomName);
+            newMeetingRoom.setFloor(floorNumber);
+            newMeetingRoom.setCapacity(capacity);
+            meetingRoomRepository.save(newMeetingRoom);
         }
-
-        var meetingRoom = new MeetingRoom();
-        meetingRoom.setRoomName(roomName);
-        meetingRoom.setFloor(floorNumber);
-        meetingRoom.setCapacity(capacity);
-        meetingRoomRepository.save(meetingRoom);
     }
 
-    public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRooms(
+    public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRoomsWithAssets(
             int page, int size, Integer floor, RoomStatus meetingRoomStatus, boolean includeDeleted) {
 
         String role = SecurityUtil.getCurrentUserRole();
 
-        // 🔒 Force restriction for non-admin users
+        // Force restriction for non-admin users
         boolean isAdmin = "SUPER_ADMIN".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
 
         if (!isAdmin) {
             includeDeleted = false;
         }
 
-        var specification = MeetingRoomSpecification.getAllMeetingRooms(floor, meetingRoomStatus, includeDeleted);
+        var specification = MeetingRoomSpecification.getAllMeetingRooms(floor, meetingRoomStatus, includeDeleted, false);
         var sort = Sort.by(Sort.Direction.ASC, "floor");
         var pageable = PageRequest.of(page, size, sort);
 
@@ -79,9 +90,9 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
                     rooms.getTotalElements(), rooms.getTotalPages());
         }
 
-        var totalAssets = assetRepository.getTotalAssets(roomIds, includeDeleted);
-        var assetStats = assetRepository.getAssetStats(roomIds, includeDeleted);
-        var assetNameAndCount = assetRepository.getAssetsByName(roomIds, includeDeleted);
+        var totalAssets = assetRepository.getTotalAssets(roomIds);
+        var assetStats = assetRepository.getAssetStats(roomIds);
+        var assetNameAndCount = assetRepository.getAssetsByName(roomIds);
 
         Map<Long, Long> totalAssetMap = new HashMap<>();
         for (Object[] row : totalAssets) {
@@ -149,7 +160,7 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
     @Transactional
     public void deleteMeetingRoom(Long roomId) {
 
-        MeetingRoom room = meetingRoomRepository.findById(roomId)
+        MeetingRoom room = meetingRoomRepository.findByIdAndIsDeletedFalse(roomId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting room not found"));
 
         boolean hasActiveBookings =
@@ -161,9 +172,78 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
             throw new RuntimeException("Cannot delete room with active bookings");
         }
 
+        if (room.getStatus() == RoomStatus.OCCUPIED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete meeting room during occupied.");
+        }
+
         room.setIsDeleted(true);
         log.info("Meeting room and its assets are deleted by - {}", SecurityUtil.getCurrentUserId());
+    }
 
-        assetRepository.softDeleteByRoomId(roomId);
+    @Transactional
+    public void updateMeetingRoom(Long roomId, UpdateMeetingRoomRequest request) {
+
+        var room = meetingRoomRepository.findByIdAndIsDeletedFalse(roomId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
+
+        if (room.getStatus() == RoomStatus.OCCUPIED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot update during meeting.");
+        }
+
+        if (request.getFloor() != null) {
+            room.setFloor(request.getFloor());
+        }
+
+        if (request.getMeetingRoomName() != null) {
+            room.setRoomName(StringCapitalizeUtil.capitalizeEachWord(request.getMeetingRoomName()));
+        }
+
+        if (request.getCapacity() != null) {
+            room.setCapacity(request.getCapacity());
+        }
+
+        if (request.getStatus() != null && request.getStatus() == RoomStatus.OCCUPIED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are not allowed to update to this status.");
+        }
+        room.setStatus(request.getStatus());
+
+    }
+
+    @Override
+    public Page<MeetingRoomResponseDTO> getMeetingRooms(
+            RoomStatus status,
+            boolean includeDeleted,
+            boolean onlyDeleted,
+            Pageable pageable
+    ) {
+
+        var role = SecurityUtil.getCurrentUserRole();
+
+        if (role.equals("ADMIN")) {
+            includeDeleted = false;
+            onlyDeleted = false;
+        }
+
+        if (includeDeleted && onlyDeleted) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use either includeDeleted or onlyDeleted");
+        }
+
+        var spec = MeetingRoomSpecification.getAllMeetingRooms(
+                null,
+                status,
+                includeDeleted,
+                onlyDeleted
+        );
+
+        var meetingRooms =  meetingRoomRepository.findAll(spec, pageable);
+        return meetingRooms.map(r ->
+                new MeetingRoomResponseDTO(
+                        r.getId(),
+                        r.getRoomName(),
+                        r.getFloor(),
+                        r.getCapacity(),
+                        r.getStatus().name()
+                )
+        );
     }
 }

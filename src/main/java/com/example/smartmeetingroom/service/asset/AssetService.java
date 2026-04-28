@@ -19,6 +19,7 @@ public interface AssetService {
                                                    Short typeId,
                                                    Long meetingRoomId,
                                                    AssetStatus status,
+                                                   boolean onlyDeleted,
                                                    List<String> sortParam);
 
     public void updateAsset(Long assetId, JsonNode request);
