@@ -90,28 +90,32 @@ public class SecurityConfig {
                                 "/api/users",
                                 "/api/assets",
                                 "/api/asset-types",
-                                "/api/asset-service/**"
+                                "/api/asset-service/**",
+                                "/api/procedures"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users",
                                 "/api/assets/**",
                                 "/api/meeting-rooms",
-                                "/api/asset-service/**"
+                                "/api/asset-service/**",
+                                "/api/procedures"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/users/*",
                                 "/api/asset-types/*",
                                 "/api/meeting-rooms/*",
-                                "/api/assets/*"
+                                "/api/assets/*",
+                                "/api/procedures/*"
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/asset-types/*",
                                 "/api/assets/*",
                                 "/api/users/*/role",
-                                "/api/meeting-rooms/*"
+                                "/api/meeting-rooms/*",
+                                "/api/procedures/**"
                         ).hasAnyRole("SUPER_ADMIN", "ADMIN")
 
 

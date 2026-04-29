@@ -62,4 +62,10 @@ public class AssetDTO {
 
 
     }
+
+    public AssetDTO(Long assetId, String assetName, String serialNumber) {
+        this.assetId = assetId;
+        this.assetName = assetName;
+        this.serialNumber = serialNumber;
+    }
 }
