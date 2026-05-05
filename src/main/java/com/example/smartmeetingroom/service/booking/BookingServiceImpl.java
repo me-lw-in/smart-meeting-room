@@ -2,6 +2,7 @@ package com.example.smartmeetingroom.service.booking;
 
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
 import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
+import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.entity.User;
@@ -69,10 +70,19 @@ public class BookingServiceImpl implements BookingService{
     @Override
     @Transactional
     public void updateBookingInfo(PatchBookingDTO dto, Long bookingId){
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        List<String> allowedRoles = List.of("ADMIN", "SUPER_ADMIN");
+
         // fetch the booking
         var booking = bookingRepository.findById(bookingId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found")
         );
+
+        if (!booking.getCreatedBy().getId().equals(currentUserId)  && !allowedRoles.contains(SecurityUtil.getCurrentUserRole())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You can only cancel your own bookings");
+        }
 
         validateAccess(booking);
 
@@ -295,5 +305,54 @@ public class BookingServiceImpl implements BookingService{
         if (end.isBefore(minEnd) || end.isAfter(maxEnd)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End time must be between 09:15 and 18:00");
         }
+    }
+
+    public List<BookingDTO> getMyBookings(BookingStatus status) {
+
+        Long userId = SecurityUtil.getCurrentUserId();
+
+        List<BookingDTO> bookings = bookingRepository.findBookingsByUser(userId, status);
+
+        List<Object[]> rows = bookingRepository.findParticipantsForBookings(userId, status);
+
+        Map<Long, List<UserDTO>> map = new HashMap<>();
+
+        for (Object[] row : rows) {
+            Long bookingId = (Long) row[0];
+            UserDTO user = (UserDTO) row[1];
+
+            map.computeIfAbsent(bookingId, k -> new ArrayList<>()).add(user);
+        }
+
+        for (BookingDTO booking : bookings) {
+            booking.setParticipants(map.getOrDefault(booking.getBookingId(), List.of()));
+        }
+
+        return bookings;
+    }
+
+    @Override
+    @Transactional
+    public void cancelBooking(Long bookingId) {
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        List<String> allowedRoles = List.of("ADMIN", "SUPER_ADMIN");
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Booking not found"));
+
+
+        if (!booking.getCreatedBy().getId().equals(currentUserId)  && !allowedRoles.contains(SecurityUtil.getCurrentUserRole())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You can only cancel your own bookings");
+        }
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Booking already cancelled");
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
     }
 }

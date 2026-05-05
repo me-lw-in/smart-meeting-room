@@ -20,7 +20,7 @@ class ProcedureController {
 
     @GetMapping
     public ResponseEntity<?> getAllProcedures(
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search) {
         var result = procedureService.getAllProcedures(page, size, search);
@@ -36,11 +36,12 @@ class ProcedureController {
     @PatchMapping("/{procedureId}/assets")
     public ResponseEntity<?> linkAssets(
             @PathVariable Long procedureId,
+            @RequestParam String action,
             @Valid @RequestBody LinkAssetsToProcedureRequestDTO request) {
 
-        procedureService.linkAssetsToProcedure(procedureId, request.getAssetIds());
+        var result = procedureService.linkAssetsToProcedure(procedureId, action, request.getAssetIds());
         return ResponseEntity.ok(Map.of(
-                "message", "Assets linked to procedure successfully"
+                "message", "Assets " + result + " successfully"
         ));
     }
 

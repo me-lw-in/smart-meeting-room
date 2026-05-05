@@ -1,5 +1,7 @@
 package com.example.smartmeetingroom.dto.booking;
 
+import com.example.smartmeetingroom.dto.user.UserDTO;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotEmpty;
@@ -8,10 +10,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Getter
 @Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class BookingDTO {
     @NotNull(message = "Meeting room id is required")
     private Long meetingRoomId;
@@ -26,4 +30,18 @@ public class BookingDTO {
     @NotNull(message = "End time is required")
     @Future(message = "End time must be in the future")
     private LocalDateTime endTime;
+
+    private Long bookingId;
+
+    private List<UserDTO> participants;
+
+    private String roomName;
+
+    public BookingDTO(Long bookingId, String roomName, LocalDateTime startTime, LocalDateTime endTime){
+        this.bookingId = bookingId;
+        this.roomName = roomName;
+        this.startTime = startTime;
+        this.endTime = endTime;
+
+    }
 }

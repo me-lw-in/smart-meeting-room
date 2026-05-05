@@ -19,9 +19,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -76,7 +74,7 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
 
         var specification = MeetingRoomSpecification.getAllMeetingRooms(floor, meetingRoomStatus, includeDeleted, false);
         var sort = Sort.by(Sort.Direction.ASC, "floor");
-        var pageable = PageRequest.of(page, size, sort);
+        var pageable = PageRequest.of(page - 1, size, sort);
 
         var rooms = meetingRoomRepository.findAll(specification, pageable);
 
@@ -214,7 +212,8 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
             RoomStatus status,
             boolean includeDeleted,
             boolean onlyDeleted,
-            Pageable pageable
+            int page,
+            int size
     ) {
 
         var role = SecurityUtil.getCurrentUserRole();
@@ -235,7 +234,9 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
                 onlyDeleted
         );
 
+        var pageable = PageRequest.of(page -1 , size);
         var meetingRooms =  meetingRoomRepository.findAll(spec, pageable);
+
         return meetingRooms.map(r ->
                 new MeetingRoomResponseDTO(
                         r.getId(),

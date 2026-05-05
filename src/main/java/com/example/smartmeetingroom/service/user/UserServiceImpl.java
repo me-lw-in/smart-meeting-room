@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 
 @Slf4j
@@ -75,7 +76,7 @@ public class UserServiceImpl implements UserService{
                         userType + " role not found"
                 )
         );
-
+        System.out.println(role.getRoleName());
         String firstName = StringCapitalizeUtil.capitalizeEachWord(dto.getFirstName().trim());
         String lastName = StringCapitalizeUtil.capitalizeEachWord(dto.getLastName().trim());
         String password = passwordEncoder.encode(dto.getPassword());
@@ -162,7 +163,7 @@ public class UserServiceImpl implements UserService{
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied.");
         }
 
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page - 1, size);
         var usersPage = userRepository.findUsersWithFilters(
                 currentUserId,
                 currentUserRole,
@@ -289,5 +290,10 @@ public class UserServiceImpl implements UserService{
         targetUser.setRoles(newRole);
         userRepository.save(targetUser);
         log.info("User id - {} changed the role of user id- {} to -{}", currentUserId, targetUserId, newRole.getRoleName());
+    }
+
+    @Override
+    public List<UserDTO> getAllEmployeeNames() {
+        return userRepository.findAllEmployeeNames();
     }
 }

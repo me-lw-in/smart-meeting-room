@@ -1,17 +1,17 @@
 package com.example.smartmeetingroom.dto.procedure;
 
 import com.example.smartmeetingroom.dto.asset.AssetDTO;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.List;
 
 @Getter
 @Setter
 @AllArgsConstructor
+@RequiredArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProcedureDTO {
     private Long id;
 

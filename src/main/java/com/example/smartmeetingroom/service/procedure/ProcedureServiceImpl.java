@@ -18,11 +18,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-
 @Slf4j
 @Service
 @AllArgsConstructor
@@ -46,7 +45,7 @@ public class ProcedureServiceImpl implements  ProcedureService{
     @Override
     public Page<ProcedureDTO> getAllProcedures(int page, int size, String search) {
 
-        var pageable = PageRequest.of(page, size);
+        var pageable = PageRequest.of(page - 1, size);
         var procedurePage = procedureRepository.findAllWithAssets(search, pageable);
         return procedurePage.map(procedure -> new ProcedureDTO(
                 procedure.getId(),
@@ -63,40 +62,74 @@ public class ProcedureServiceImpl implements  ProcedureService{
 
     @Override
     @Transactional
-    public void linkAssetsToProcedure(Long procedureId, List<Long> newAssetIds) {
+    public String linkAssetsToProcedure(Long procedureId, String action, List<Long> assetIds) {
 
         var procedure = procedureRepository.findById(procedureId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Procedure not found"));
 
-        List<Asset> assets = assetRepository.findAllById(newAssetIds);
+        List<Asset> assets = assetRepository.findAllById(assetIds);
 
-        if (assets.size() != newAssetIds.size()) {
+        if (assets.size() != new HashSet<>(assetIds).size()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Some assets not found");
         }
 
-        // Collect old asset ids
-        Set<Long> oldAssetIds = procedure.getAssets().stream()
-                .map(Asset::getId)
-                .collect(Collectors.toSet());
+        ProcedureDTO procedureDto = new ProcedureDTO(
+                procedure.getId(),
+                procedure.getTitle(),
+                procedure.getProcedureText()
+        );
 
-        // check removedIds
-        Set<Long> removedIds = new HashSet<>(oldAssetIds);
-        removedIds.removeAll(newAssetIds);
+        if ("link".equalsIgnoreCase(action)) {
 
-        // check added
-        Set<Long> addedIds = new HashSet<>(newAssetIds);
-        addedIds.removeAll(oldAssetIds);
+            for (Asset asset : assets) {
 
-        procedure.getAssets().clear();
-        procedure.getAssets().addAll(assets);
+                procedure.getAssets().add(asset);
 
-        if (!removedIds.isEmpty()) {
-            cacheService.evict(removedIds);
+                List<ProcedureDTO> existingList = cacheService.get(asset.getId());
+
+                if (existingList == null) {
+                    existingList = new ArrayList<>();
+                }
+
+                boolean alreadyExists = existingList.stream()
+                        .anyMatch(p -> p.getId().equals(procedureId));
+
+                if (!alreadyExists) {
+                    existingList.add(procedureDto);
+                }
+
+                cacheService.put(asset.getId(), existingList);
+            }
+
+            return "linked";
         }
-        if (!addedIds.isEmpty()) {
-            cacheService.evict(addedIds); // 🔥 IMPORTANT: don't put stale data
+
+        else if ("unlink".equalsIgnoreCase(action)) {
+
+            for (Asset asset : assets) {
+
+                procedure.getAssets().remove(asset);
+
+                List<ProcedureDTO> existingList = cacheService.get(asset.getId());
+
+                if (existingList != null) {
+
+                    existingList.removeIf(p -> p.getId().equals(procedureId));
+
+                    if (existingList.isEmpty()) {
+                        cacheService.evict(Set.of(asset.getId()));
+                    } else {
+                        cacheService.put(asset.getId(), existingList);
+                    }
+                }
+            }
+
+            return "unlinked";
         }
-        log.info("User with id - {}, linked / updated assets to procedure with id - {}", SecurityUtil.getCurrentUserId(), procedure.getId());
+
+        else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid action");
+        }
     }
 
     @Override

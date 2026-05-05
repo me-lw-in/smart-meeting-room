@@ -1,10 +1,12 @@
 package com.example.smartmeetingroom.repository;
 
+import com.example.smartmeetingroom.dto.booking.BookingDTO;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -94,4 +96,32 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean existsByRoom_IdAndStatusInAndIsDeletedFalse(
             Long room_id, Collection<BookingStatus> status
     );
+
+    @Query("""
+    SELECT new com.example.smartmeetingroom.dto.booking.BookingDTO(
+        b.id,
+        b.room.roomName,
+        b.startTime,
+        b.endTime
+    )
+    FROM Booking b
+    WHERE b.createdBy.id = :userId
+    AND (:status IS NULL OR b.status = :status)
+""")
+    List<BookingDTO> findBookingsByUser(@Param("userId") Long userId,
+                                        @Param("status") BookingStatus status);
+
+    @Query("""
+    SELECT b.id, new com.example.smartmeetingroom.dto.user.UserDTO(
+        u.id,
+        u.firstName,
+        u.lastName
+    )
+    FROM Booking b
+    JOIN b.participants u
+    WHERE b.createdBy.id = :userId
+    AND (:status IS NULL OR b.status = :status)
+""")
+    List<Object[]> findParticipantsForBookings(@Param("userId") Long userId,
+                                               @Param("status") BookingStatus status);
 }

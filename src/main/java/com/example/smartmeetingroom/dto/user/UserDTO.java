@@ -44,7 +44,12 @@ public class UserDTO {
 
     private Long totalUsers;
 
-    public UserDTO(String firstName, String lastName, String email, LocalDateTime createdAt, String roleName, UserStatus status){
+    private Long id;
+
+    private String fullName;
+
+    public UserDTO(Long id, String firstName, String lastName, String email, LocalDateTime createdAt, String roleName, UserStatus status){
+        this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
@@ -58,4 +63,18 @@ public class UserDTO {
         this.lastName = lastName;
         this.email = email;
     }
+
+    public UserDTO(Long id, String firstName, String lastName) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+
+    public UserDTO(Long id, String fullName, UserStatus status) {
+        this.id = id;
+        this.fullName = fullName;
+        this.status = status;
+    }
+
+
 }

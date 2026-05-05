@@ -25,6 +25,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("""
         SELECT new com.example.smartmeetingroom.dto.user.UserDTO(
+            u.id,
             u.firstName,
             u.lastName,
             u.email,
@@ -65,24 +66,41 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByIdAndIsDeletedFalse(Long id);
 
     @Query("""
-     SELECT new com.example.smartmeetingroom.dto.user.UserDTO(
-            u.firstName,
-            u.lastName,
-            u.email,
-            u.createdAt,
-            u.roles.roleName,
-            u.status
-     )
-     FROM User u
+    SELECT new com.example.smartmeetingroom.dto.user.UserDTO(
+           u.id,
+           u.firstName,
+           u.lastName,
+           u.email,
+           u.createdAt,
+           u.roles.roleName,
+           u.status
+    )
+    FROM User u
     WHERE u.isDeleted = false
       AND u.id != :currentUserId
-      AND (:currentUserRole = 'SUPER_ADMIN' OR u.roles.roleName  != 'SUPER_ADMIN')
-       AND (:role IS NULL OR u.roles.roleName = :role)
-    """)
+      AND (
+            (:currentUserRole = 'SUPER_ADMIN')
+            OR
+            (:currentUserRole = 'ADMIN' AND u.roles.roleName != 'SUPER_ADMIN')
+          )
+      AND (:role IS NULL OR u.roles.roleName = :role)
+""")
     Page<UserDTO> findUsersWithFilters(
             @Param("currentUserId") Long currentUserId,
             @Param("currentUserRole") String currentUserRole,
             @Param("role") String role,
             Pageable pageable
     );
+
+    @Query("""
+    SELECT new com.example.smartmeetingroom.dto.user.UserDTO(
+        u.id,
+        CONCAT(u.firstName, ' ', u.lastName),
+        u.status
+    )
+    FROM User u
+    WHERE u.isDeleted = false
+    AND u.roles.roleName = "EMPLOYEE"
+""")
+    List<UserDTO> findAllEmployeeNames();
 }

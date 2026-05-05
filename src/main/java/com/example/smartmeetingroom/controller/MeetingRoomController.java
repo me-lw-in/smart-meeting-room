@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +30,7 @@ class MeetingRoomController {
 
     @GetMapping("/details")
     public ResponseEntity<PageResponseDTO<MeetingRoomResponseDTO>> getRoomsWithAssets(
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer floor,
             @RequestParam(required = false) RoomStatus status,
@@ -52,9 +51,10 @@ class MeetingRoomController {
             @RequestParam(required = false) RoomStatus status,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
             @RequestParam(defaultValue = "false") boolean onlyDeleted,
-            Pageable pageable
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
-        var rooms = meetingRoomService.getMeetingRooms(status, includeDeleted, onlyDeleted, pageable);
+        var rooms = meetingRoomService.getMeetingRooms(status, includeDeleted, onlyDeleted, page, size);
         return ResponseEntity.ok(rooms);
     }
 

@@ -6,6 +6,8 @@ import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.dto.user.UserResponseDTO;
 import com.example.smartmeetingroom.entity.User;
 
+import java.util.List;
+
 
 public interface UserService {
 
@@ -26,4 +28,6 @@ public interface UserService {
     public void deleteUser(Long id);
 
     public void updateUserRole(Long targetUserId, Byte roleId);
+
+    public List<UserDTO> getAllEmployeeNames();
 }

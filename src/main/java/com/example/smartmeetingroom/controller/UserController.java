@@ -42,9 +42,14 @@ class UserController {
         return ResponseEntity.status(HttpStatus.OK).body("Email sent again!");
     }
 
+    @GetMapping("/employees/names")
+    public ResponseEntity<?> getEmployeeNames() {
+        return ResponseEntity.ok(userService.getAllEmployeeNames());
+    }
+
     @GetMapping()
     public ResponseEntity<UserResponseDTO> getAllUsers(
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String role
     ){
@@ -84,4 +89,5 @@ class UserController {
         userService.deleteUser(id);
         return ResponseEntity.ok("Account deleted successfully");
     }
+
 }

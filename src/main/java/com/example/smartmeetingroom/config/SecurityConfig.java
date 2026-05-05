@@ -60,10 +60,16 @@ public class SecurityConfig {
                                 "/api/techniciain/**"
                         ).hasRole("TECHNICIAN")
 
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/users/employees/names"
+                        ).hasRole("EMPLOYEE")
+
                         // Everyone
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users/*",
+                                "/api/bookings/*",
                                 "/api/meeting-rooms/details",
                                 "/api/notifications/*"
                         ).authenticated()
@@ -76,7 +82,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/users",
-                                "/api/bookings/*"
+                                "/api/bookings/**"
                         ).authenticated()
                         .requestMatchers(
                                 HttpMethod.DELETE,

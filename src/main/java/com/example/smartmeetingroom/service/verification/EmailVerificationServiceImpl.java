@@ -142,7 +142,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
 
         if (verificationObj.getVerifiedAt() != null){
             if (LocalDateTime.now().isAfter(verificationObj.getVerifiedValidUntil())) {
-                // here i should delete that token right? //go to resend
+
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Verification session expired. Please restart.");
             }
 
@@ -167,7 +167,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService{
         EmailVerificationType type = verificationObj.getType();
         switch (type){
             case SIGNUP:
-                System.out.println("return url");
                 return "http://" + frontEndDomain + ":" + frontEndPort + "/auth/complete-signup?token=" + token;
 
             case EMAIL_CHANGE:

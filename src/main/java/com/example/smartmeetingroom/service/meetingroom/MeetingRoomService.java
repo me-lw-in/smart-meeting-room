@@ -6,7 +6,6 @@ import com.example.smartmeetingroom.dto.meetingrooms.UpdateMeetingRoomRequest;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.enums.RoomStatus;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 public interface MeetingRoomService {
 
@@ -22,6 +21,7 @@ public interface MeetingRoomService {
             RoomStatus status,
             boolean includeDeleted,
             boolean onlyDeleted,
-            Pageable pageable
+            int page,
+            int size
     );
 }

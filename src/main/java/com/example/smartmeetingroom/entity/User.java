@@ -2,7 +2,6 @@ package com.example.smartmeetingroom.entity;
 
 import com.example.smartmeetingroom.enums.UserStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
@@ -47,7 +46,6 @@ public class User {
     @ColumnDefault("'AVAILABLE'")
     private UserStatus status;
 
-    @NotNull
     @ColumnDefault("0")
     @Column(name = "is_deleted", nullable = false, insertable = false)
     private Boolean isDeleted;

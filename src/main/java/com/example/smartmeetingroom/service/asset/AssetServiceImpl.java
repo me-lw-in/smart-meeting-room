@@ -112,7 +112,10 @@ public class AssetServiceImpl implements AssetService {
                     () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found in the specified room")
             );
         }
-       asset.setIsDeleted(true);
+        if (asset.getStatus() == AssetStatus.IN_USE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Asset cannot be deleted when it is in used.");
+        }
+        asset.setIsDeleted(true);
     }
 
     public PageResponseDTO<AssetDTO> getAllAssets(int page,
@@ -280,7 +283,8 @@ public class AssetServiceImpl implements AssetService {
                 if (!sortValue.isBlank()) {
                     var sortValueParts = sortValue.split(",");
                     var field = sortValueParts[0].trim();
-                    var direction = sortValueParts[1].trim().length() > 1 ? sortValueParts[1].trim() : "asc";
+                    var direction = sortValueParts[1].trim().isEmpty() ? "asc" : sortValueParts[1].trim() ;
+
 
                     if (!allowedSortFields.contains(field)) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sort field: " + field);
