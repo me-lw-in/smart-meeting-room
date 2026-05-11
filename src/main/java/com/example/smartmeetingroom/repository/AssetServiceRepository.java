@@ -26,6 +26,7 @@ public interface AssetServiceRepository extends JpaRepository<AssetService, Long
             s.createdAt,
             CONCAT(u.firstName, ' ', u.lastName),
             CONCAT(t.firstName, ' ', t.lastName),
+            s.remark,
             a.assetName,
             a.status
         )

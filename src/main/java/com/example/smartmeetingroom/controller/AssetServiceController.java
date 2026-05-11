@@ -2,6 +2,7 @@ package com.example.smartmeetingroom.controller;
 
 import com.example.smartmeetingroom.dto.assetservice.AssetServiceDTO;
 import com.example.smartmeetingroom.dto.assetservice.CreateAssetTicketDTO;
+import com.example.smartmeetingroom.dto.assetservice.RejectComplaintRequestDTO;
 import com.example.smartmeetingroom.enums.AssetServiceStatus;
 import com.example.smartmeetingroom.service.assetservice.AssetServiceServ;
 import jakarta.validation.Valid;
@@ -34,5 +35,16 @@ class AssetServiceController {
     public ResponseEntity<Void> makeDecisionOnComplaint(@PathVariable Long id, @RequestBody @Valid AssetServiceDTO dto) {
         assetServiceServ.makeDecisionOnComplaint(id, dto);
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/reject/{serviceId}")
+    public ResponseEntity<String> rejectComplaint(
+            @PathVariable Long serviceId,
+            @Valid @RequestBody RejectComplaintRequestDTO request
+    ) {
+
+        assetServiceServ.rejectComplaint(serviceId, request.getRemarks());
+
+        return ResponseEntity.ok("Complaint rejected successfully");
     }
 }

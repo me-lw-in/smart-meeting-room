@@ -7,6 +7,7 @@ import com.example.smartmeetingroom.repository.ProcedureRepository;
 import com.example.smartmeetingroom.service.cache.ProcedureCacheService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class TechnicianServiceImpl implements TechnicianService {
@@ -37,11 +39,13 @@ public class TechnicianServiceImpl implements TechnicianService {
         var cached = cacheService.get(assignedTasks.getAssetId());
         List<ProcedureDTO> assetProcedure;
         if (cached != null) {
-            assignedTasks.setProcedures(cached); // ⚡ fast return
+            assignedTasks.setProcedures(cached); //  fast return
+            log.info("Fetching procedures from reddis");
         }else {
             assetProcedure = procedureRepository.getAssetProcedures(assignedTasks.getAssetId());
             assignedTasks.setProcedures(assetProcedure);
             cacheService.put(assignedTasks.getAssetId(), assetProcedure);
+            log.info("Fetching procedures from DB");
         }
         return assignedTasks;
     }

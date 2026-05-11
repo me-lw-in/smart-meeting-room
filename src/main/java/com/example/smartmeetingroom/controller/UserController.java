@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 
 @RestController
 @AllArgsConstructor
@@ -24,8 +26,8 @@ class UserController {
     private final EmailVerificationService emailVerificationService;
 
     @PostMapping()
-    public ResponseEntity<Void> createUsersByAdminOrSuperAdmin(@RequestBody @Valid UserDTO dto){
-        userService.createUserByAdminOrSuperAdmin(dto);
+    public ResponseEntity<Void> createUsersByAdminOrSuperAdmin(@RequestBody @Valid List<UserDTO> dtos){
+        userService.createUserByAdminOrSuperAdmin(dtos);
         return ResponseEntity.ok().build();
     }
 

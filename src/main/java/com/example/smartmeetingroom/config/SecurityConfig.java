@@ -57,9 +57,11 @@ public class SecurityConfig {
                         ).hasRole("TECHNICIAN")
                         .requestMatchers(
                                 HttpMethod.PATCH,
-                                "/api/techniciain/**"
+                                "/api/techniciain/**",
+                                "/api/asset-service/reject/*"
                         ).hasRole("TECHNICIAN")
 
+                        // Employee
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/users/employees/names"

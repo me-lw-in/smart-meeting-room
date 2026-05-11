@@ -18,4 +18,6 @@ public interface AssetServiceServ {
     public void startAssetService(Long assetServiceId);
 
     public void completeAssetService(Long assetServiceId, CompleteTaskRequestDTO dto);
+
+    public void rejectComplaint(Long serviceId, String remarks);
 }

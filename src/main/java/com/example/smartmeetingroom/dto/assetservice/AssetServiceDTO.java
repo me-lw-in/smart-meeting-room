@@ -56,6 +56,7 @@ public class AssetServiceDTO {
                            LocalDateTime createdAt,
                            String raisedBy,
                            String technicianName,
+                           String remarks,
                            String assetName,
                            AssetStatus assetStatus) {
         this.id = id;
@@ -67,6 +68,7 @@ public class AssetServiceDTO {
         this.createdAt = createdAt;
         this.raisedBy = raisedBy;
         this.technicianName = technicianName;
+        this.remark = remarks;
         this.assetName = assetName;
         this.assetStatus = assetStatus;
     }

@@ -17,6 +17,7 @@ import com.example.smartmeetingroom.util.ConfigUtil;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AssetServiceServImpl implements AssetServiceServ {
@@ -369,4 +371,39 @@ public class AssetServiceServImpl implements AssetServiceServ {
         }
         return reviewedById;
     }
+
+    @Override
+    @Transactional
+    public void rejectComplaint(Long serviceId, String remarks) {
+
+        var technicianId = SecurityUtil.getCurrentUserId();
+
+        var currentUserRole = SecurityUtil.getCurrentUserRole();
+
+        if (!"TECHNICIAN".equalsIgnoreCase(currentUserRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+
+        var complaint = assetServiceRepository.findById(serviceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Complaint not found"));
+
+
+        if (!complaint.getTechnician().getId().equals(technicianId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this complaint");
+        }
+
+        if (!complaint.getStatus().equals(AssetServiceStatus.NEW) &&
+                !complaint.getStatus().equals(AssetServiceStatus.ASSIGNED)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot reject");
+        }
+
+        var technician = userRepository
+                .getReferenceById(technicianId);
+        technician.setStatus(UserStatus.AVAILABLE);
+        complaint.setStatus(AssetServiceStatus.REJECTED);
+        complaint.setRemark(remarks);
+        log.info("Complaint {} rejected by technician {}", serviceId, technicianId);
+    }
+
+
 }

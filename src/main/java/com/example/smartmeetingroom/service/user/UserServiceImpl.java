@@ -105,11 +105,17 @@ public class UserServiceImpl implements UserService{
     }
 
     @Transactional
-    public void createUserByAdminOrSuperAdmin(UserDTO dto){
-        var email = dto.getEmail().trim().toLowerCase();
+    public void createUserByAdminOrSuperAdmin(List<UserDTO> dtos){
         var currenUserRole = SecurityUtil.getCurrentUserRole();
         var isSuperAdmin = "SUPER_ADMIN".equals(currenUserRole);
 
+        for (var dto : dtos){
+            createSingleUser(dto, isSuperAdmin, currenUserRole);
+        }
+    }
+
+    private void createSingleUser(UserDTO dto, boolean isSuperAdmin, String currenUserRole) {
+        var email = dto.getEmail().trim().toLowerCase();
         if (dto.getUserType() == null){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User type is required.");
         }

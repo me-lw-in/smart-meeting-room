@@ -19,7 +19,7 @@ public interface UserService {
 
     public void updateUserInfo(UpdateUserProfileRequestDTO dto);
 
-    public void createUserByAdminOrSuperAdmin(UserDTO dto);
+    public void createUserByAdminOrSuperAdmin(List<UserDTO> dtos);
 
     public void resetPassword(PasswordChangeDTO dto);
 
