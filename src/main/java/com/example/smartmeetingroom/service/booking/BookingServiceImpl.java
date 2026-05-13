@@ -2,6 +2,7 @@ package com.example.smartmeetingroom.service.booking;
 
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
 import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
+import com.example.smartmeetingroom.dto.event.MeetingRoomBookedEvent;
 import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.entity.MeetingRoom;
@@ -9,6 +10,7 @@ import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.enums.*;
 import com.example.smartmeetingroom.repository.*;
 import com.example.smartmeetingroom.service.notification.NotificationService;
+import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -27,10 +29,11 @@ import java.util.stream.Collectors;
 public class BookingServiceImpl implements BookingService{
 
     private final UserRepository userRepository;
+    private final ProducerService producerService;
     private final AssetRepository assetRepository;
     private final BookingRepository bookingRepository;
-    private final MeetingRoomRepository meetingRoomRepository;
     private final NotificationService notificationService;
+    private final MeetingRoomRepository meetingRoomRepository;
 
     @Override
     @Transactional
@@ -62,7 +65,14 @@ public class BookingServiceImpl implements BookingService{
         booking.setParticipants(new HashSet<>(users));
         bookingRepository.save(booking);
 
-        notificationService.sendMeetingCreatedNotifications(dto.getParticipantIds(), loggedInUserId, startTime, meetingRoom.getRoomName(),NotificationType.MEETING_CREATED);
+        producerService.sendMeetingBookedEvent(new MeetingRoomBookedEvent(
+                booking.getId(),
+                booking.getRoom().getRoomName(),
+                booking.getCreatedBy().getFirstName() + booking.getCreatedBy().getLastName(),
+                dto.getParticipantIds(),
+                startTime,
+                loggedInUserId,
+                NotificationType.MEETING_CREATED));
     }
 
 

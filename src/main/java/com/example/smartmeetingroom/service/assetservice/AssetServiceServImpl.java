@@ -402,6 +402,46 @@ public class AssetServiceServImpl implements AssetServiceServ {
         technician.setStatus(UserStatus.AVAILABLE);
         complaint.setStatus(AssetServiceStatus.REJECTED);
         complaint.setRemark(remarks);
+
+        String raisedByEmail = complaint.getRaisedBy().getEmail();
+
+        List<String> cc = new ArrayList<>();
+
+        if (complaint.getReviewedBy() != null &&
+                complaint.getReviewedBy().getEmail() != null &&
+                !complaint.getReviewedBy().getEmail().equalsIgnoreCase(raisedByEmail)) {
+
+            cc.add(complaint.getReviewedBy().getEmail());
+        }
+
+        String subject = "Complaint Rejected - ID " + complaint.getId();
+
+        String body = """
+            Hello,
+
+            The following complaint has been rejected by the technician.
+
+            Complaint ID : %s
+            Technician   : %s %s
+            Remarks      : %s
+
+            Please review the complaint for further action.
+            """
+                .formatted(
+                        complaint.getId(),
+                        technician.getFirstName(),
+                        technician.getLastName(),
+                        remarks
+                );
+
+        emailService.sendEmail(
+                raisedByEmail,
+                cc,
+                null,
+                subject,
+                body
+        );
+
         log.info("Complaint {} rejected by technician {}", serviceId, technicianId);
     }
 
