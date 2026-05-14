@@ -26,7 +26,7 @@ public class EmailServiceImpl implements EmailService{
     @Async
     @Override
     public void sendEmail(String to, List<String> cc, List<String> bcc, String subject, String body) {
-        log.info("Sending verification email to: {}", to);
+        log.info("Sending  email to: {}", to);
 
         SimpleMailMessage mail = new SimpleMailMessage();
         mail.setTo(to);
@@ -56,7 +56,9 @@ public class EmailServiceImpl implements EmailService{
     public void sendMeetingEmails(Set<Long> participantIds, Long loggedInUserId, LocalDateTime startTime, String meetingRoom) {
 
         for (Long userId : participantIds) {
-            var user = userRepository.getReferenceById(userId);
+            var user = userRepository.findById(userId).orElseThrow(
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+            );
             String body;
             if (userId.equals(loggedInUserId)) {
                 body = "Your meeting has been scheduled at "

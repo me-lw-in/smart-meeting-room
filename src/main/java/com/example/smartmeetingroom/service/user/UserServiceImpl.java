@@ -116,13 +116,31 @@ public class UserServiceImpl implements UserService{
 
     private void createSingleUser(UserDTO dto, boolean isSuperAdmin, String currenUserRole) {
         var email = dto.getEmail().trim().toLowerCase();
+
         if (dto.getUserType() == null){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User type is required.");
         }
-        if (!isSuperAdmin && dto.getUserType().equalsIgnoreCase("SUPER_ADMIN")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only Super admin can create super admins.");
-        }else {
-            userType = dto.getUserType().toUpperCase().trim();
+
+        userType = dto.getUserType().toUpperCase().trim();
+
+        // Admin rules
+        if (!isSuperAdmin) {
+
+            if (userType.equals("SUPER_ADMIN") || userType.equals("ADMIN")) {
+
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Admins can only create employees and technicians."
+                );
+            }
+        }
+
+        // Super admin rules
+        if (userType.equals("SUPER_ADMIN")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Super admin creation is not allowed."
+            );
         }
 
         var user = userRepository.findByEmail(email);
