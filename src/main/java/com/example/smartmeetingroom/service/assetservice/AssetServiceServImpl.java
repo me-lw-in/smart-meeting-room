@@ -2,7 +2,7 @@ package com.example.smartmeetingroom.service.assetservice;
 
 import com.example.smartmeetingroom.dto.assetservice.AssetServiceDTO;
 import com.example.smartmeetingroom.dto.assetservice.CreateAssetTicketDTO;
-import com.example.smartmeetingroom.dto.technician.CompleteTaskRequestDTO;
+import com.example.smartmeetingroom.dto.technician.UpdateAssetServiceDTO;
 import com.example.smartmeetingroom.entity.AssetService;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.enums.AssetServiceDecision;
@@ -77,31 +77,35 @@ public class AssetServiceServImpl implements AssetServiceServ {
     }
 
     @Transactional
-    public void startAssetService(Long assetServiceId) {
+    public void startAssetService(Long assetServiceId, UpdateAssetServiceDTO dto) {
 
+        // check if complaint exists
         var assetService = assetServiceRepository.findById(assetServiceId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Complaint not found.")
         );
 
-        if (assetService.getStatus() != AssetServiceStatus.ASSIGNED){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Service has already started.");
-        }
-        var currentDate = LocalDate.now();
-        if (currentDate.isBefore(assetService.getScheduledDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot start service before scheduled date.");
-        }
+        // check if its new
+        if (assetService.getStatus() == AssetServiceStatus.ASSIGNED) {
+            // update
+            var currentDate = LocalDate.now();
+            if (currentDate.isBefore(assetService.getScheduledDate())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot start service before scheduled date.");
+            }
+            // update asset status
+            var asset = assetService.getAsset();
+            asset.setStatus(AssetStatus.UNDER_MAINTENANCE);
 
-        // update asset status
-        var asset = assetService.getAsset();
-        asset.setStatus(AssetStatus.UNDER_MAINTENANCE);
+            // update service status
+            assetService.setStatus(AssetServiceStatus.IN_PROGRESS);
+            assetService.setStartedAt(LocalDateTime.now());
 
-        // update service status
-        assetService.setStatus(AssetServiceStatus.IN_PROGRESS);
-        assetService.setStartedAt(LocalDateTime.now());
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only services which are assigned can be started");
+        }
     }
 
     @Transactional
-    public void completeAssetService(Long assetServiceId, CompleteTaskRequestDTO dto) {
+    public void completeAssetService(Long assetServiceId, UpdateAssetServiceDTO dto) {
         var technicianId = SecurityUtil.getCurrentUserId();
         var isTechnician = "TECHNICIAN".equalsIgnoreCase(SecurityUtil.getCurrentUserRole());
 
@@ -121,27 +125,18 @@ public class AssetServiceServImpl implements AssetServiceServ {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only in-progress tasks can be completed.");
         }
 
-        if (dto.getServiceStatus() != AssetServiceStatus.RESOLVED &&
-                dto.getServiceStatus() != AssetServiceStatus.FAILED) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "You can only set status as RESOLVED or FAILED."
-            );
-        }
-
         var technician = userRepository.findById(technicianId).orElseThrow(() -> new RuntimeException("Technician not found"));
 
-        switch (dto.getServiceStatus()) {
-            case RESOLVED -> handleResolvedTask(dto, assetService);
+        switch (dto.getServiceStatus().toUpperCase()) {
+            case "RESOLVED" -> handleResolvedTask(dto, assetService);
 
-            case FAILED -> handleFailedTask(dto, assetService);
+            case "FAILED" -> handleFailedTask(dto, assetService);
         }
 
         technician.setStatus(UserStatus.AVAILABLE);
     }
 
-    public void handleResolvedTask(CompleteTaskRequestDTO dto, AssetService assetService) {
+    public void handleResolvedTask(UpdateAssetServiceDTO dto, AssetService assetService) {
         assetService.setStatus(AssetServiceStatus.RESOLVED);
         assetService.getAsset().setStatus(AssetStatus.AVAILABLE);
         if (dto.getRemarks() != null){
@@ -184,7 +179,7 @@ public class AssetServiceServImpl implements AssetServiceServ {
         );
     }
 
-    public void handleFailedTask(CompleteTaskRequestDTO dto, AssetService assetService) {
+    public void handleFailedTask(UpdateAssetServiceDTO dto, AssetService assetService) {
         if (dto.getRemarks() == null || dto.getRemarks().isBlank()){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Remarks is mandatory.");
         }
@@ -397,6 +392,10 @@ public class AssetServiceServImpl implements AssetServiceServ {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot reject");
         }
 
+        if (remarks == null || remarks.trim().isEmpty()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Remarks is mandatory.");
+        }
+
         var technician = userRepository
                 .getReferenceById(technicianId);
         technician.setStatus(UserStatus.AVAILABLE);
@@ -444,6 +443,4 @@ public class AssetServiceServImpl implements AssetServiceServ {
 
         log.info("Complaint {} rejected by technician {}", serviceId, technicianId);
     }
-
-
 }
