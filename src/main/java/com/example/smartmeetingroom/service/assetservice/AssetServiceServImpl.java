@@ -2,6 +2,7 @@ package com.example.smartmeetingroom.service.assetservice;
 
 import com.example.smartmeetingroom.dto.assetservice.AssetServiceDTO;
 import com.example.smartmeetingroom.dto.assetservice.CreateAssetTicketDTO;
+import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.technician.UpdateAssetServiceDTO;
 import com.example.smartmeetingroom.entity.AssetService;
 import com.example.smartmeetingroom.entity.User;
@@ -11,8 +12,10 @@ import com.example.smartmeetingroom.enums.AssetStatus;
 import com.example.smartmeetingroom.enums.UserStatus;
 import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.AssetServiceRepository;
+import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
 import com.example.smartmeetingroom.service.email.EmailService;
+import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.ConfigUtil;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
@@ -35,20 +38,24 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class AssetServiceServImpl implements AssetServiceServ {
 
-    private final AssetRepository assetRepository;
-    private final UserRepository userRepository;
-    private final AssetServiceRepository assetServiceRepository;
     private final EmailService emailService;
+    private final ProducerService auditProducer;
+    private final UserRepository userRepository;
+    private final ProducerService auditService;
+    private final AssetRepository assetRepository;
+    private final RoleRepository roleRepository;
+    private final AssetServiceRepository assetServiceRepository;
 
     @Override
     public void raiseComplaint(CreateAssetTicketDTO dto) {
 
         var loggedInUserId = getValidatedUser();
 
+
         // 1. find asset
         var asset = assetRepository.findById(dto.getAssetId()).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asset not found.")
-        );
+        ); System.out.println(loggedInUserId);
 
         // 2. check if asset is working
         var workingAssetStatus = ConfigUtil.getAllowedValues("WORKING_ASSET_STATUSES").stream()
@@ -74,6 +81,15 @@ public class AssetServiceServImpl implements AssetServiceServ {
         ticket.setAsset(asset);
         ticket.setRaisedBy(userRepository.getReferenceById(loggedInUserId));
         assetServiceRepository.save(ticket);
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "SERVICE_CREATED",
+                "ASSET_SERVICE",
+                ticket.getId(),
+                loggedInUserId,
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                " created",
+                LocalDateTime.now()
+        ));
     }
 
     @Transactional
@@ -98,7 +114,17 @@ public class AssetServiceServImpl implements AssetServiceServ {
             // update service status
             assetService.setStatus(AssetServiceStatus.IN_PROGRESS);
             assetService.setStartedAt(LocalDateTime.now());
-
+            auditService.sendAuditEvent(
+                    new AuditEventDTO(
+                            "SERVICE_STARTED",
+                            "ASSET_SERVICE",
+                            assetService.getId(),
+                            SecurityUtil.getCurrentUserId(),
+                            roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                            "Technician started service work",
+                            LocalDateTime.now()
+                    )
+            );
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only services which are assigned can be started");
         }
@@ -144,6 +170,17 @@ public class AssetServiceServImpl implements AssetServiceServ {
         }
         assetService.setCompletedAt(LocalDateTime.now());
 
+        auditProducer.sendAuditEvent(
+                new AuditEventDTO(
+                        "SERVICE_RESOLVED",
+                        "ASSET_SERVICE",
+                        assetService.getId(),
+                        SecurityUtil.getCurrentUserId(),
+                        roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                        "Service completed successfully",
+                        LocalDateTime.now()
+                )
+        );
         // email
         String subject = "Service Completed Successfully (Complaint ID: " + assetService.getId() + ")";
         String body = """
@@ -187,6 +224,18 @@ public class AssetServiceServImpl implements AssetServiceServ {
         assetService.getAsset().setStatus(AssetStatus.INACTIVE);
         assetService.setRemark(dto.getRemarks());
         assetService.setCompletedAt(LocalDateTime.now());
+
+        auditProducer.sendAuditEvent(
+                new AuditEventDTO(
+                        "SERVICE_FAILED",
+                        "ASSET_SERVICE",
+                        assetService.getId(),
+                        SecurityUtil.getCurrentUserId(),
+                        roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                        "Technician unable to resolve service",
+                        LocalDateTime.now()
+                )
+        );
 
         // email
         String subject = "Service Completed - Issue Not Resolved (Complaint ID: " + assetService.getId() + ")";
@@ -241,14 +290,52 @@ public class AssetServiceServImpl implements AssetServiceServ {
         validateNotAlreadyProcessed(assetService);
 
         switch (dto.getDecision()) {
-            case REPAIRABLE -> handleRepairable(dto, assetService);
+            case REPAIRABLE -> {
+                var technicianId = handleRepairable(dto, assetService);
+                auditService.sendAuditEvent(
+                        new AuditEventDTO(
+                                "SERVICE_ASSIGNED",
+                                "ASSET_SERVICE",
+                                assetService.getId(),
+                                SecurityUtil.getCurrentUserId(),
+                                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                                "Service assigned to technician id " + technicianId,
+                                LocalDateTime.now()
+                        )
+                );
+            }
             case NOT_REPAIRABLE -> {
                 var nonRepairableStatus = ConfigUtil.getAllowedValues("NON_REPAIRABLE_ASSET_STATUSES").stream()
                         .map(AssetStatus::valueOf)
                         .collect(Collectors.toSet());
                 handleNotRepairable(dto, nonRepairableStatus, assetService);
+                auditService.sendAuditEvent(
+                        new AuditEventDTO(
+                                "SERVICE_MARKED_NOT_REPAIRABLE",
+                                "ASSET_SERVICE",
+                                assetService.getId(),
+                                SecurityUtil.getCurrentUserId(),
+                                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                                "Asset Service marked not repairable. Asset status changed to "
+                                        + dto.getAssetStatus(),
+                                LocalDateTime.now()
+                        )
+                );
             }
-            case REJECT -> handleReject(dto, assetService);
+            case REJECT -> {
+                handleReject(dto, assetService);
+                auditService.sendAuditEvent(
+                        new AuditEventDTO(
+                                "SERVICE_REJECTED",
+                                "ASSET_SERVICE",
+                                assetService.getId(),
+                                SecurityUtil.getCurrentUserId(),
+                                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                                "Service request rejected by admin",
+                                LocalDateTime.now()
+                        )
+                );
+            }
         }
         updateAuditFields(dto, assetService, reviewedById);
     }
@@ -282,7 +369,7 @@ public class AssetServiceServImpl implements AssetServiceServ {
         assetService.setStatus(AssetServiceStatus.RESOLVED);
     }
 
-    private void handleRepairable(AssetServiceDTO dto, AssetService assetService) {
+    private Long handleRepairable(AssetServiceDTO dto, AssetService assetService) {
         if (dto.getScheduledDate() == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Scheduled date is required");
 
@@ -343,6 +430,7 @@ public class AssetServiceServImpl implements AssetServiceServ {
                 subject,
                 body
         );
+        return technician.getId();
     }
 
     private static void validateNotAlreadyProcessed(AssetService assetService) {
@@ -441,6 +529,17 @@ public class AssetServiceServImpl implements AssetServiceServ {
                 body
         );
 
+        auditProducer.sendAuditEvent(
+                new AuditEventDTO(
+                        "SERVICE_REJECTED",
+                        "ASSET_SERVICE",
+                        serviceId,
+                        technicianId,
+                        roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                        "Service request rejected by technician",
+                        LocalDateTime.now()
+                )
+        );
         log.info("Complaint {} rejected by technician {}", serviceId, technicianId);
     }
 }

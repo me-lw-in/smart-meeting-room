@@ -8,8 +8,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Slf4j
 @Component
@@ -24,22 +28,25 @@ public class DataInitializer implements CommandLineRunner {
     private String SUPER_ADMIN_FIRST_NAME;
     @Value("${app.super-admin.last-name}")
     private String SUPER_ADMIN_LAST_NAME;
+    @Value("${app.roles}")
+    private final List<String> roles;
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-
-
     @Override
     public void run(String... args) throws Exception {
-        var superAdminRole = roleRepository
-                .findByRoleName("SUPER_ADMIN")
-                .orElseGet(() -> {
-                    var role = new Role();
-                    role.setRoleName("SUPER_ADMIN");
-                    return roleRepository.save(role);
-                });
 
+        roles.forEach(r -> {
+                    var isExists = roleRepository.existsByRoleName(r.toUpperCase());
+                    if (!isExists) {
+                        var role = new Role();
+                        role.setRoleName(r.toUpperCase());
+                        roleRepository.save(role);
+                    }
+        });
+
+        var superAdminRole = roleRepository.findByRoleName("SUPER_ADMIN").orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
         boolean userExists = userRepository.existsByEmail(SUPER_ADMIN_EMAIL);
 
         if (!userExists) {
