@@ -28,7 +28,7 @@ public class RoomOccupancy {
     private Integer currentCount;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "recorded_at")
+    @Column(name = "recorded_at", insertable = false)
     private LocalDateTime recordedAt;
 
 

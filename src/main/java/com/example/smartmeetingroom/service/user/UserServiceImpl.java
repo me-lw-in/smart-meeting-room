@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.service.user;
 
+import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.user.PasswordChangeDTO;
 import com.example.smartmeetingroom.dto.user.UpdateUserProfileRequestDTO;
 import com.example.smartmeetingroom.dto.user.UserDTO;
@@ -9,6 +10,7 @@ import com.example.smartmeetingroom.enums.UserStatus;
 import com.example.smartmeetingroom.repository.EmailVerificationRepository;
 import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.repository.UserRepository;
+import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import jakarta.transaction.Transactional;
@@ -33,6 +35,7 @@ public class UserServiceImpl implements UserService{
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final ProducerService auditService;
     private final EmailVerificationRepository emailVerificationRepository;
     private static String userType = "EMPLOYEE";
 
@@ -143,6 +146,7 @@ public class UserServiceImpl implements UserService{
             );
         }
 
+        Long entityId;
         var user = userRepository.findByEmail(email);
         if (user.isPresent() && user.get().getIsDeleted() == false) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already taken.");
@@ -165,6 +169,7 @@ public class UserServiceImpl implements UserService{
             user.get().setRoles(role);
             user.get().setStatus(UserStatus.AVAILABLE);
             user.get().setIsDeleted(false);
+            entityId = user.get().getId();
         } else {
             var newUser = new User();
             newUser.setFirstName(firstName);
@@ -173,7 +178,17 @@ public class UserServiceImpl implements UserService{
             newUser.setPassword(password);
             newUser.setRoles(role);
             userRepository.save(newUser);
+            entityId = newUser.getId();
         }
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "USER_CREATION",
+                "USERS",
+                entityId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole().toUpperCase()).get().getId(),
+                "NEW " + userType + "USER CREATED BY " + currenUserRole,
+                LocalDateTime.now()
+                ));
 
         log.info("User created successfully by {} with role {}", currenUserRole, userType);
     }
@@ -272,6 +287,15 @@ public class UserServiceImpl implements UserService{
             () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found.")
         );
         user.setIsDeleted(true);
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "USER_SOFT_DELETE",
+                "USERS",
+                id,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole().toUpperCase()).get().getId(),
+                "User with id " + id + "is soft deleted by " + SecurityUtil.getCurrentUserRole(),
+                LocalDateTime.now()
+        ));
     }
 
     public void updateUserRole(Long targetUserId, Byte roleId) {
@@ -313,6 +337,15 @@ public class UserServiceImpl implements UserService{
 
         targetUser.setRoles(newRole);
         userRepository.save(targetUser);
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "USER_ROLE_UPDATE",
+                "USERS",
+                targetUserId,
+                currentUserId,
+                roleRepository.findByRoleName(currentUserRole.toUpperCase()).get().getId(),
+                "Role changed to " + newRole.getRoleName(),
+                LocalDateTime.now()
+        ));
         log.info("User id - {} changed the role of user id- {} to -{}", currentUserId, targetUserId, newRole.getRoleName());
     }
 

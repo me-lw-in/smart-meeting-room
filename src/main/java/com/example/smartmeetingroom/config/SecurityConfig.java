@@ -105,6 +105,7 @@ public class SecurityConfig {
                                 "/api/users",
                                 "/api/assets/**",
                                 "/api/meeting-rooms",
+                                "/api/meeting-rooms/*/qr",
                                 "/api/asset-service/**",
                                 "/api/procedures"
                                 ).hasAnyRole("SUPER_ADMIN", "ADMIN")

@@ -2,12 +2,15 @@ package com.example.smartmeetingroom.service.asset;
 
 import com.example.smartmeetingroom.dto.asset.AssetDTO;
 import com.example.smartmeetingroom.dto.asset.AssetUpdateDTO;
+import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.page.PageResponseDTO;
 import com.example.smartmeetingroom.entity.Asset;
 import com.example.smartmeetingroom.enums.AssetStatus;
 import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.AssetTypeRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
+import com.example.smartmeetingroom.repository.RoleRepository;
+import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.specification.AssetSpecification;
 import com.example.smartmeetingroom.util.ConfigUtil;
 import com.example.smartmeetingroom.util.SecurityUtil;
@@ -33,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -43,17 +47,21 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class AssetServiceImpl implements AssetService {
 
+    private final ProducerService auditService;
     private final AssetRepository assetRepository;
     private final AssetTypeRepository assetTypeRepository;
     private final MeetingRoomRepository meetingRoomRepository;
 
     private final ObjectMapper objectMapper;
+    private final RoleRepository roleRepository;
 
     @Transactional
     public void addAsset(AssetDTO dto){
         Set<AssetStatus> ALLOWED_CREATE_STATUS  = Set.of(AssetStatus.AVAILABLE, AssetStatus.PENDING_INSTALLATION);
         var assetName = StringCapitalizeUtil.capitalizeEachWord(dto.getAssetName());
         var serialNumber = dto.getSerialNumber().trim().toUpperCase();
+        Long assetId;
+
         if (!dto.getWarrantyExpiry().isAfter(dto.getPurchaseDate())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Warranty expiry must be after purchase date");
         }
@@ -85,6 +93,7 @@ public class AssetServiceImpl implements AssetService {
             asset.get().setRoom(room);
             asset.get().setAssetType(assetType);
             asset.get().setStatus(dto.getAssetStatus());
+            assetId = asset.get().getId();
         } else {
             var newAsset = new Asset();
             newAsset.setAssetName(assetName);
@@ -94,9 +103,19 @@ public class AssetServiceImpl implements AssetService {
             newAsset.setRoom(room);
             newAsset.setAssetType(assetType);
             newAsset.setStatus(dto.getAssetStatus());
+            assetId = newAsset.getId();
             assetRepository.save(newAsset);
         }
 
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "ASSET_CREATED",
+                "ASSETS",
+                assetId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Asset created",
+                LocalDateTime.now()
+        ));
 
     }
 
@@ -116,6 +135,15 @@ public class AssetServiceImpl implements AssetService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Asset cannot be deleted when it is in used.");
         }
         asset.setIsDeleted(true);
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "ASSET_DELETED",
+                "ASSETS",
+                assetId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Asset deleted",
+                LocalDateTime.now()
+        ));
     }
 
     public PageResponseDTO<AssetDTO> getAllAssets(int page,
@@ -181,6 +209,15 @@ public class AssetServiceImpl implements AssetService {
             checkAllowedFields(request, superAdminAllowedUpdateFields);
             validateAndUpdateFields(assetId, dto, asset);
         }
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "ASSET_UPDATED",
+                "ASSETS",
+                assetId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Asset updated",
+                LocalDateTime.now()
+        ));
     }
 
     private void validateAndUpdateFields(Long assetId, AssetUpdateDTO dto, Asset asset) {

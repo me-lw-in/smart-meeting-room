@@ -1,13 +1,16 @@
 package com.example.smartmeetingroom.service.procedure;
 
 import com.example.smartmeetingroom.dto.asset.AssetDTO;
+import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.procedure.ProcedureDTO;
 import com.example.smartmeetingroom.dto.procedure.UpdateProcedureRequestDTO;
 import com.example.smartmeetingroom.entity.Asset;
 import com.example.smartmeetingroom.entity.Procedure;
 import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.ProcedureRepository;
+import com.example.smartmeetingroom.repository.RoleRepository;
 import com.example.smartmeetingroom.service.cache.ProcedureCacheService;
+import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -18,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,9 +31,11 @@ import java.util.Set;
 @AllArgsConstructor
 public class ProcedureServiceImpl implements  ProcedureService{
 
-    private final ProcedureRepository procedureRepository;
     private final AssetRepository assetRepository;
+    private final ProducerService auditService;
+    private final ProcedureRepository procedureRepository;
     private final ProcedureCacheService cacheService;
+    private final RoleRepository roleRepository;
 
     @Override
     public void createProcedure(ProcedureDTO request) {
@@ -39,6 +45,15 @@ public class ProcedureServiceImpl implements  ProcedureService{
         procedure.setProcedureText(request.getSteps());
 
         procedureRepository.save(procedure);
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "ADD_PROCEDURE",
+                "PROCEDURES",
+                procedure.getId(),
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "ADD NEW PROCEDURE",
+                LocalDateTime.now()
+        ));
         log.info("User with id - {}, added a procedure with id - {}", SecurityUtil.getCurrentUserId(), procedure.getId());
     }
 
@@ -138,17 +153,56 @@ public class ProcedureServiceImpl implements  ProcedureService{
 
         var procedure = procedureRepository.findById(procedureId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Procedure not found"));
-
+        boolean isTitleChanaged = false;
+        boolean isProcedureTextChanged = false;
         if (request.getTitle() != null) {
+            isTitleChanaged = !procedure.getTitle().equalsIgnoreCase(request.getTitle());
             procedure.setTitle(request.getTitle());
         }
 
         if (request.getProcedureText() != null) {
+            isProcedureTextChanged = !procedure.getProcedureText().equalsIgnoreCase(request.getProcedureText());
             procedure.setProcedureText(request.getProcedureText());
         }
-        
+
         var assetIds = procedureRepository.findAssetIdsByProcedureId(procedureId);
         cacheService.evict(assetIds);
+        String changedText;
+        if (isTitleChanaged && isProcedureTextChanged) {
+            changedText = "TITLE & PROCEDURE TEXT";
+            auditService.sendAuditEvent(new AuditEventDTO(
+                    "UPDATE_PROCEDURE",
+                    "PROCEDURES",
+                    procedure.getId(),
+                    SecurityUtil.getCurrentUserId(),
+                    roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                    "PROCEDURE IS UPDATED (" + changedText + " changed)" ,
+                    LocalDateTime.now()
+            ));
+        } else if (isTitleChanaged) {
+            changedText = "TITLE";
+            auditService.sendAuditEvent(new AuditEventDTO(
+                    "UPDATE_PROCEDURE",
+                    "PROCEDURES",
+                    procedure.getId(),
+                    SecurityUtil.getCurrentUserId(),
+                    roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                    "PROCEDURE IS UPDATED (" + changedText + " changed)" ,
+                    LocalDateTime.now()
+            ));
+        }else if (isProcedureTextChanged){
+            changedText = "PROCEDURE TEXT";
+            auditService.sendAuditEvent(new AuditEventDTO(
+                    "UPDATE_PROCEDURE",
+                    "PROCEDURES",
+                    procedure.getId(),
+                    SecurityUtil.getCurrentUserId(),
+                    roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                    "PROCEDURE IS UPDATED (" + changedText + " changed)" ,
+                    LocalDateTime.now()
+            ));
+        }
+
     }
 
     @Transactional
@@ -163,7 +217,15 @@ public class ProcedureServiceImpl implements  ProcedureService{
                     "Please unlink assets before deleting the procedure"
             );
         }
-
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "DELETE_PROCEDURE",
+                "PROCEDURES",
+                procedure.getId(),
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "PROCEDURE WITH ID " + procedure.getId() + " is deleted",
+                LocalDateTime.now()
+        ));
         procedureRepository.delete(procedure);
     }
 }

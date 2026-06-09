@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.service.booking;
 
+import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
 import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
 import com.example.smartmeetingroom.dto.event.MeetingRoomBookedEvent;
@@ -9,7 +10,6 @@ import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.enums.*;
 import com.example.smartmeetingroom.repository.*;
-import com.example.smartmeetingroom.service.notification.NotificationService;
 import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
@@ -32,8 +32,9 @@ public class BookingServiceImpl implements BookingService{
     private final ProducerService producerService;
     private final AssetRepository assetRepository;
     private final BookingRepository bookingRepository;
-    private final NotificationService notificationService;
+    private final ProducerService auditEvenProducer;
     private final MeetingRoomRepository meetingRoomRepository;
+    private final RoleRepository roleRepository;
 
     @Override
     @Transactional
@@ -73,6 +74,17 @@ public class BookingServiceImpl implements BookingService{
                 startTime,
                 loggedInUserId,
                 NotificationType.MEETING_CREATED));
+        auditEvenProducer.sendAuditEvent(
+                new AuditEventDTO(
+                    "BOOKING_CREATED",
+                        "BOOKINGS",
+                        booking.getId(),
+                        loggedInUserId,
+                        roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                        "Meeting room booking created for " +  booking.getRoom().getRoomName() + " from " + startTime + " to " + endTime,
+                        LocalDateTime.now()
+                )
+        );
     }
 
 
@@ -151,6 +163,15 @@ public class BookingServiceImpl implements BookingService{
         booking.setStartTime(newStartTime);
         booking.setEndTime(newEndTime);
 
+        auditEvenProducer.sendAuditEvent(new AuditEventDTO(
+            "BOOKING_UPDATED",
+                "BOOKINGS",
+                booking.getId(),
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Booking info updated",
+                LocalDateTime.now()
+        ));
     }
 
     private static void validateAccess(Booking booking) {
@@ -364,5 +385,14 @@ public class BookingServiceImpl implements BookingService{
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
+        auditEvenProducer.sendAuditEvent(new AuditEventDTO(
+                "BOOKING_CANCELLED",
+                "BOOKINGS",
+                booking.getId(),
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                " Booking cancelled for " + booking.getRoom().getRoomName() + " from " + booking.getStartTime() + " to " + booking.getEndTime(),
+                LocalDateTime.now()
+        ));
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -124,4 +125,30 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 """)
     List<Object[]> findParticipantsForBookings(@Param("userId") Long userId,
                                                @Param("status") BookingStatus status);
+
+
+    @Query("""
+        SELECT b
+        FROM Booking b
+        WHERE b.room.id = :roomId
+        AND :now BETWEEN b.startTime AND b.endTime
+        AND b.status = :status
+    """)
+    Optional<Booking> findBookingIdByRoomIdAndCurrentTime(
+            @Param("roomId") Long roomId,
+            @Param("now") LocalDateTime now,
+            @Param("status") BookingStatus status
+    );
+
+    @Query("""
+        SELECT COUNT(b) > 0
+        FROM Booking b
+        JOIN b.participants p
+        WHERE b.id = :bookingId
+          AND p.id = :userId
+    """)
+    boolean existsParticipantInBooking(
+            @Param("bookingId") Long bookingId,
+            @Param("userId") Long userId
+    );
 }

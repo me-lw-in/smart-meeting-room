@@ -24,4 +24,6 @@ public interface MeetingRoomService {
             int page,
             int size
     );
+
+    byte[] generateQrCode(Long roomId);
 }

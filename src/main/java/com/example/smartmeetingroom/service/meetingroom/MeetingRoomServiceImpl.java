@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.service.meetingroom;
 
 import com.example.smartmeetingroom.dto.asset.AssetCountDTO;
+import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomDTO;
 import com.example.smartmeetingroom.dto.meetingrooms.MeetingRoomResponseDTO;
 import com.example.smartmeetingroom.dto.meetingrooms.UpdateMeetingRoomRequest;
@@ -11,7 +12,10 @@ import com.example.smartmeetingroom.enums.RoomStatus;
 import com.example.smartmeetingroom.repository.AssetRepository;
 import com.example.smartmeetingroom.repository.BookingRepository;
 import com.example.smartmeetingroom.repository.MeetingRoomRepository;
+import com.example.smartmeetingroom.repository.RoleRepository;
+import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.specification.MeetingRoomSpecification;
+import com.example.smartmeetingroom.util.QrCodeUtil;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
 import jakarta.transaction.Transactional;
@@ -24,6 +28,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,7 +39,9 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
 
     private final AssetRepository assetRepository;
     private final BookingRepository bookingRepository;
+    private final ProducerService auditService;
     private final MeetingRoomRepository meetingRoomRepository;
+    private final RoleRepository roleRepository;
 
     @Override
     @Transactional
@@ -42,6 +49,7 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
         String roomName = StringCapitalizeUtil.capitalizeEachWord(dto.getMeetingRoomName());
         Integer floorNumber = dto.getFloorNumber();
         Integer capacity = dto.getCapacity();
+        Long meetingRoomId;
 
         var meetingRoom = meetingRoomRepository.findByRoomNameAndFloor(roomName, floorNumber);
         if (meetingRoom.isPresent() && meetingRoom.get().getIsDeleted() == false) {
@@ -51,13 +59,24 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
             meetingRoom.get().setFloor(floorNumber);
             meetingRoom.get().setCapacity(capacity);
             meetingRoom.get().setStatus(RoomStatus.AVAILABLE);
+            meetingRoomId = meetingRoom.get().getId();
         }else {
             var newMeetingRoom = new MeetingRoom();
             newMeetingRoom.setRoomName(roomName);
             newMeetingRoom.setFloor(floorNumber);
             newMeetingRoom.setCapacity(capacity);
             meetingRoomRepository.save(newMeetingRoom);
+            meetingRoomId = newMeetingRoom.getId();
         }
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "MEETING_ROOM_CREATED",
+                "MEETING_ROOM",
+                meetingRoomId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Meeting room created",
+                LocalDateTime.now()
+        ));
     }
 
     public PageResponseDTO<MeetingRoomResponseDTO> getAllMeetingRoomsWithAssets(
@@ -176,6 +195,15 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
 
         room.setIsDeleted(true);
         log.info("Meeting room and its assets are deleted by - {}", SecurityUtil.getCurrentUserId());
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "MEETING_ROOM_DELETED",
+                "MEETING_ROOM",
+                roomId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Meeting room deleted",
+                LocalDateTime.now()
+        ));
     }
 
     @Transactional
@@ -205,6 +233,15 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
         }
         room.setStatus(request.getStatus());
 
+        auditService.sendAuditEvent(new AuditEventDTO(
+                "MEETING_ROOM_UPDATED",
+                "MEETING_ROOM",
+                roomId,
+                SecurityUtil.getCurrentUserId(),
+                roleRepository.findByRoleName(SecurityUtil.getCurrentUserRole()).get().getId(),
+                "Meeting room updated",
+                LocalDateTime.now()
+        ));
     }
 
     @Override
@@ -246,5 +283,15 @@ public class MeetingRoomServiceImpl implements MeetingRoomService{
                         r.getStatus().name()
                 )
         );
+    }
+
+    @Override
+    public byte[] generateQrCode(Long roomId){
+        boolean isRoomExists = meetingRoomRepository.existsById(roomId);
+        if (!isRoomExists){
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Room with id- " + roomId + " doesn't exists.");
+        }
+        String url = "http://localhost:8080/api/room-occupancy/check-in/" +roomId;
+        return QrCodeUtil.generateQr(url);
     }
 }

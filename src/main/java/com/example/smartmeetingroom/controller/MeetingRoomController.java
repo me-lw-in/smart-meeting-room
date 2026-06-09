@@ -10,7 +10,9 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,6 +58,14 @@ class MeetingRoomController {
     ) {
         var rooms = meetingRoomService.getMeetingRooms(status, includeDeleted, onlyDeleted, page, size);
         return ResponseEntity.ok(rooms);
+    }
+
+    @GetMapping("/{roomId}/qr")
+    public ResponseEntity<byte []> getQrCode(@PathVariable Long roomId){
+        var qr = meetingRoomService.generateQrCode(roomId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,  "attachment; filename=room-101-qr.png")
+                .contentType(MediaType.IMAGE_PNG).body(qr);
     }
 
     @PatchMapping("/{id}")
