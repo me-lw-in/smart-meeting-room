@@ -224,7 +224,6 @@ public class BookingServiceImpl implements BookingService{
         List<Long> userIds = bookingRepository.findDistinctUserIds(bookingIds);
 
         meetingRoomRepository.updateRoomStatus(roomIds, RoomStatus.OCCUPIED);
-        userRepository.updateUserStatus(userIds, UserStatus.IN_MEETING);
         assetRepository.updateStatusByRoomAndCurrentStatus(roomIds, AssetStatus.AVAILABLE, AssetStatus.IN_USE);
     }
 
