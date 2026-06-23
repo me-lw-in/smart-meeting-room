@@ -7,9 +7,7 @@ import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.dto.user.UserResponseDTO;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.enums.UserStatus;
-import com.example.smartmeetingroom.repository.EmailVerificationRepository;
-import com.example.smartmeetingroom.repository.RoleRepository;
-import com.example.smartmeetingroom.repository.UserRepository;
+import com.example.smartmeetingroom.repository.*;
 import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import com.example.smartmeetingroom.util.StringCapitalizeUtil;
@@ -38,6 +36,8 @@ public class UserServiceImpl implements UserService{
     private final ProducerService auditService;
     private final EmailVerificationRepository emailVerificationRepository;
     private static String userType = "EMPLOYEE";
+    private final BookingRepository bookingRepository;
+    private final RoomOccupancyRepository roomOccupancyRepository;
 
     @Transactional
     public void createUser(UserDTO dto){
@@ -350,7 +350,23 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
-    public List<UserDTO> getAllEmployeeNames() {
-        return userRepository.findAllEmployeeNames();
+    public List<UserDTO> getAllEmployeeNames(LocalDateTime from, LocalDateTime to) {
+
+//        if (from.isBefore(LocalDateTime.now()) || to.isBefore(LocalDateTime.now())) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date or time cannot be in the past");
+//        }
+
+        var currentEmployeeId = SecurityUtil.getCurrentUserId();
+        // 1. check for overlapping bookings
+        var bookingIds = bookingRepository.findOverLappingBookings(from, to);
+        if (bookingIds.isEmpty()){
+            return userRepository.findAllEmployeeNames(List.of(currentEmployeeId));
+        }else {
+            // 2. check for participant availability
+
+            var userIds = bookingRepository.findAvailableUsers(bookingIds);
+            userIds.add(currentEmployeeId);
+            return userRepository.findAllEmployeeNames(userIds);
+        }
     }
 }

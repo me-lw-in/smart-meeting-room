@@ -6,28 +6,29 @@ import com.example.smartmeetingroom.dto.user.UserDTO;
 import com.example.smartmeetingroom.dto.user.UserResponseDTO;
 import com.example.smartmeetingroom.entity.User;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 
 public interface UserService {
 
-    public void createUser(UserDTO dto);
+    void createUser(UserDTO dto);
 
-    public UserResponseDTO getAllUsers(int page, int size, String role);
+    UserResponseDTO getAllUsers(int page, int size, String role);
 
-    public void changeEmail(User user, String email);
+    void changeEmail(User user, String email);
 
-    public void updateUserInfo(UpdateUserProfileRequestDTO dto);
+    void updateUserInfo(UpdateUserProfileRequestDTO dto);
 
-    public void createUserByAdminOrSuperAdmin(List<UserDTO> dtos);
+    void createUserByAdminOrSuperAdmin(List<UserDTO> dtos);
 
-    public void resetPassword(PasswordChangeDTO dto);
+    void resetPassword(PasswordChangeDTO dto);
 
-    public UserDTO getMyProfile();
+    UserDTO getMyProfile();
 
-    public void deleteUser(Long id);
+    void deleteUser(Long id);
 
-    public void updateUserRole(Long targetUserId, Byte roleId);
+    void updateUserRole(Long targetUserId, Byte roleId);
 
-    public List<UserDTO> getAllEmployeeNames();
+    List<UserDTO> getAllEmployeeNames(LocalDateTime from, LocalDateTime to);
 }

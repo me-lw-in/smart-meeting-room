@@ -2,6 +2,8 @@ package com.example.smartmeetingroom.service.booking;
 
 import com.example.smartmeetingroom.dto.audit.AuditEventDTO;
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
+import com.example.smartmeetingroom.dto.booking.ExtensionReminderProjection;
+import com.example.smartmeetingroom.dto.booking.ParticipantsDTO;
 import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
 import com.example.smartmeetingroom.dto.event.MeetingRoomBookedEvent;
 import com.example.smartmeetingroom.dto.user.UserDTO;
@@ -10,6 +12,7 @@ import com.example.smartmeetingroom.entity.MeetingRoom;
 import com.example.smartmeetingroom.entity.User;
 import com.example.smartmeetingroom.enums.*;
 import com.example.smartmeetingroom.repository.*;
+import com.example.smartmeetingroom.service.notification.NotificationService;
 import com.example.smartmeetingroom.service.producer.ProducerService;
 import com.example.smartmeetingroom.util.SecurityUtil;
 import jakarta.transaction.Transactional;
@@ -29,12 +32,14 @@ import java.util.stream.Collectors;
 public class BookingServiceImpl implements BookingService{
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final ProducerService producerService;
     private final AssetRepository assetRepository;
-    private final BookingRepository bookingRepository;
     private final ProducerService auditEvenProducer;
+    private final BookingRepository bookingRepository;
+    private final NotificationService notificationService;
     private final MeetingRoomRepository meetingRoomRepository;
-    private final RoleRepository roleRepository;
+    private final RoomOccupancyRepository roomOccupancyRepository;
 
     @Override
     @Transactional
@@ -103,7 +108,7 @@ public class BookingServiceImpl implements BookingService{
 
         if (!booking.getCreatedBy().getId().equals(currentUserId)  && !allowedRoles.contains(SecurityUtil.getCurrentUserRole())) {
             throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "You can only cancel your own bookings");
+                    HttpStatus.FORBIDDEN, "You can only modify your own bookings");
         }
 
         validateAccess(booking);
@@ -141,17 +146,20 @@ public class BookingServiceImpl implements BookingService{
             users = validateTimeAndUsers(dto, bookingId, isTimeChanged, newStartTime, newEndTime, true, newParticipantIds);
         }
 
+        // before meeting starts
         if (booking.getStatus() != BookingStatus.STARTED || LocalDateTime.now().isBefore(oldStartTime)){
-            if (isRoomChanged){
+            if (isRoomChanged){     // can change time and room
                 boolean hasOnlyTimeChanged = false;
                 meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, hasOnlyTimeChanged, newParticipantIds, newStartTime, newEndTime);
-            }else if (isTimeChanged){
+            }else if (isTimeChanged){ // only time can be changed
                 boolean hasOnlyTimeChanged = true;
                 meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, hasOnlyTimeChanged, newParticipantIds, newStartTime, newEndTime);
             }
         }else {
             meetingRoom = checkMeetingRoomAvailability(newRoomId, bookingId, true, newParticipantIds, newStartTime, newEndTime);
         }
+
+        checkUsersAvailability(newParticipantIds, bookingId, newStartTime, newEndTime);
 
         if (meetingRoom != null){
             booking.setRoom(meetingRoom);
@@ -393,5 +401,42 @@ public class BookingServiceImpl implements BookingService{
                 " Booking cancelled for " + booking.getRoom().getRoomName() + " from " + booking.getStartTime() + " to " + booking.getEndTime(),
                 LocalDateTime.now()
         ));
+    }
+
+    @Override
+    public void sendNotificationForMeetingExtension() {
+        List<Long> bookingIds = new ArrayList<>();
+        // 1. fetch eligible bookings for notifications
+        var meetingExtensionEligibleBookings = bookingRepository.findExtensionEligibleBookings();
+
+        if (meetingExtensionEligibleBookings.isEmpty()) {
+            return;
+        }
+
+        for (ExtensionReminderProjection booking : meetingExtensionEligibleBookings){
+            bookingIds.add(booking.getBookingId());
+        }
+
+        // 2. set flag to true
+        bookingRepository.setExtensionRemainderSent(bookingIds);
+
+        // 3. send notifications
+        notificationService.sendMeetingRoomExtensionNotification(meetingExtensionEligibleBookings);
+
+    }
+
+    @Override
+    public ParticipantsDTO getTotalParticipantsCount(){
+        var currentUserId = SecurityUtil.getCurrentUserId();
+
+        // 1. get start and end time and room id
+        var bookingInfo = bookingRepository.getCurrentUserBookingInfo(currentUserId);
+        if (bookingInfo == null){
+            return new ParticipantsDTO();
+        }
+
+        // 2. find the total count
+        var totalCount = roomOccupancyRepository.getTotalParticipants(bookingInfo.getStartTime(), bookingInfo.getEndTime(), bookingInfo.getMeetingRoomId());
+        return new ParticipantsDTO(bookingInfo.getMeetingRoomId(), totalCount);
     }
 }

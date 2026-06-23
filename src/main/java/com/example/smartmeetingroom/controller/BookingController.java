@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.controller;
 
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
+import com.example.smartmeetingroom.dto.booking.ParticipantsDTO;
 import com.example.smartmeetingroom.dto.booking.PatchBookingDTO;
 import com.example.smartmeetingroom.enums.BookingStatus;
 import com.example.smartmeetingroom.service.booking.BookingService;
@@ -44,6 +45,11 @@ class BookingController {
             @RequestParam(required = false) BookingStatus status) {
 
         return ResponseEntity.ok(bookingService.getMyBookings(status));
+    }
+
+    @GetMapping("/current/participants/count")
+    public ResponseEntity<ParticipantsDTO> getTotalParticipantsCount(){
+        return ResponseEntity.ok(bookingService.getTotalParticipantsCount());
     }
 
     @PatchMapping("/{bookingId}/cancel")

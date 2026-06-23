@@ -51,4 +51,8 @@ public class Booking {
     @ColumnDefault("0")
     @Column(name = "is_deleted")
     private Boolean isDeleted;
+
+    @ColumnDefault("0")
+    @Column(name = "extension_reminder_sent", insertable = false)
+    private Boolean extensionReminderSent;
 }

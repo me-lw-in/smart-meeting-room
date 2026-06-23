@@ -16,4 +16,15 @@ public interface RoomOccupancyRepository extends JpaRepository<RoomOccupancy, Lo
         AND r.recordedAt <= :currentTime
     """)
     int getCurrentOccupants(Long meetingRoomId, LocalDateTime startTime,LocalDateTime currentTime);
+
+    @Query("""
+    SELECT COUNT(*)
+    FROM RoomOccupancy r
+    WHERE r.meetingRoom.id = :meetingRoomId
+    AND r.recordedAt >= :startTime
+    AND r.recordedAt <= :endTime
+    """)
+    int getTotalParticipants(LocalDateTime startTime, LocalDateTime endTime, Long meetingRoomId);
+
+
 }

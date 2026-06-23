@@ -7,6 +7,7 @@ import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import java.util.Set;
 
 @Getter
 @Setter
+@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class BookingDTO {
     @NotNull(message = "Meeting room id is required")
@@ -43,5 +45,11 @@ public class BookingDTO {
         this.startTime = startTime;
         this.endTime = endTime;
 
+    }
+
+    public BookingDTO(LocalDateTime startTime, LocalDateTime endTime, Long meetingRoomId){
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.meetingRoomId = meetingRoomId;
     }
 }

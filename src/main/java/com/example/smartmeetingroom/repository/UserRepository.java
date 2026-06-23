@@ -101,6 +101,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     FROM User u
     WHERE u.isDeleted = false
     AND u.roles.roleName = "EMPLOYEE"
+    AND u.status NOT IN ("ON_LEAVE", "NOT_AVAILABLE")
+    AND u.id NOT IN :userIds
+    AND u.isDeleted = false
 """)
-    List<UserDTO> findAllEmployeeNames();
+    List<UserDTO> findAllEmployeeNames(List<Long> userIds);
 }

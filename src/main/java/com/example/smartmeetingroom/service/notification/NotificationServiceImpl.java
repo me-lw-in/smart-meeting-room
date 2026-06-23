@@ -1,5 +1,6 @@
 package com.example.smartmeetingroom.service.notification;
 
+import com.example.smartmeetingroom.dto.booking.ExtensionReminderProjection;
 import com.example.smartmeetingroom.dto.notification.MarkNotificationReadRequest;
 import com.example.smartmeetingroom.dto.notification.NotificationDTO;
 import com.example.smartmeetingroom.entity.Notification;
@@ -16,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -82,6 +84,28 @@ public class NotificationServiceImpl implements NotificationService{
                 emitter.complete();
                 emitters.remove(userId);
             }
+        }
+    }
+
+    @Async
+    @Override
+    public void sendMeetingRoomExtensionNotification(List<ExtensionReminderProjection> dto) {
+        for (ExtensionReminderProjection booking : dto){
+            var remainingTime = booking.getNextMeetingTime().minusMinutes(5);
+            var formatter = DateTimeFormatter.ofPattern("HH:mm a");
+            var message  = "You can extend this meeting until " + remainingTime.format(formatter);
+            var notification = new Notification();
+            notification.setMessage(message);
+            notification.setType(NotificationType.MEETING_TIME_EXTENSION);
+            notification.setUser(userRepository.getReferenceById(booking.getCreatedBy()));
+            notificationRepository.save(notification);
+            pushNotification(booking.getCreatedBy(),
+                    new NotificationDTO(
+                            notification.getId(),
+                            message,
+                            notification.getType(),
+                            notification.getIsRead(),
+                            notification.getCreatedAt()));
         }
     }
 

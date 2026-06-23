@@ -1,6 +1,7 @@
 package com.example.smartmeetingroom.repository;
 
 import com.example.smartmeetingroom.dto.booking.BookingDTO;
+import com.example.smartmeetingroom.dto.booking.ExtensionReminderProjection;
 import com.example.smartmeetingroom.entity.Booking;
 import com.example.smartmeetingroom.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -151,4 +152,77 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("bookingId") Long bookingId,
             @Param("userId") Long userId
     );
+
+    @Query(value = """
+    SELECT
+        b.id AS bookingId,
+        b.created_by AS createdBy,
+
+        COALESCE(
+            (
+                SELECT MIN(nb.start_time)
+                FROM bookings nb
+                WHERE nb.room_id = b.room_id
+                  AND nb.status = 'CONFIRMED'
+                  AND nb.start_time >= b.end_time
+            ),
+            TIMESTAMP(CURRENT_DATE, '18:00:00')
+        ) AS nextMeetingTime
+
+    FROM bookings b
+    WHERE b.status = 'STARTED'
+      AND b.extension_reminder_sent = false
+      AND b.end_time BETWEEN NOW()
+                         AND DATE_ADD(NOW(), INTERVAL 10 MINUTE)
+
+      AND COALESCE(
+            (
+                SELECT MIN(nb.start_time)
+                FROM bookings nb
+                WHERE nb.room_id = b.room_id
+                  AND nb.status = 'CONFIRMED'
+                  AND nb.start_time >= b.end_time
+            ),
+            TIMESTAMP(CURRENT_DATE, '18:00:00')
+          ) > DATE_ADD(b.end_time, INTERVAL 5 MINUTE)
+    """,
+            nativeQuery = true)
+    List<ExtensionReminderProjection> findExtensionEligibleBookings();
+
+    @Modifying
+    @Query("""
+        UPDATE Booking b
+        SET b.extensionReminderSent = true
+        WHERE b.id IN :bookingIds
+    """)
+    void setExtensionRemainderSent(List<Long> bookingIds);
+
+    @Query("""
+    SELECT new com.example.smartmeetingroom.dto.booking.BookingDTO(
+          b.startTime,
+          b.endTime,
+          b.room.id
+    )
+    FROM Booking b
+    WHERE b.status = "STARTED"
+    AND b.createdBy.id = :userId
+    """)
+    BookingDTO getCurrentUserBookingInfo(Long userId);
+
+    @Query("""
+    SELECT b.id
+    FROM Booking b
+    WHERE b.startTime < :to
+    AND b.endTime > :from
+    """)
+    List<Long> findOverLappingBookings(LocalDateTime from, LocalDateTime to);
+
+    @Query("""
+    SELECT DISTINCT p.id
+    FROM Booking b
+    JOIN b.participants p
+    WHERE b.id IN :bookingIds
+    
+    """)
+    List<Long> findAvailableUsers(List<Long> bookingIds);
 }

@@ -18,10 +18,11 @@ public class BookingSchedulerImpl implements BookingScheduler{
     @Transactional
     @Scheduled(cron = "0 * * * * *") // every 60 sec
     public void updateBookingStatus() {
-        LocalDateTime now = LocalDateTime.now();
 
+        LocalDateTime now = LocalDateTime.now();
         bookingService.startMeetings(now);
         bookingService.endMeetings(now);
+        bookingService.sendNotificationForMeetingExtension();
     }
 
 

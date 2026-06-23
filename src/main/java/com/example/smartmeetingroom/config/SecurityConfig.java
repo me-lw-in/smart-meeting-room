@@ -63,7 +63,8 @@ public class SecurityConfig {
                         // Employee
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/users/employees/names"
+                                "/api/users/employees/names",
+                                "api/bookings/current/participants/count"
                         ).hasRole("EMPLOYEE")
 
                         // Everyone

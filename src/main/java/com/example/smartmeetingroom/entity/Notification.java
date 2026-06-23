@@ -35,7 +35,7 @@ public class Notification {
     private NotificationType type;
 
     @ColumnDefault("0")
-    @Column(name = "is_read")
+    @Column(name = "is_read", insertable = false)
     private Boolean isRead = false;
 
     @CreationTimestamp
